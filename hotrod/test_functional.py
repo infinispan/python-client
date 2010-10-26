@@ -8,6 +8,7 @@ Copyright (c) 2010  Galder Zamarreño
 """
 
 import unittest
+import time
 
 from hotrod import HotRodClient
 
@@ -19,12 +20,18 @@ class FunctionalTest(unittest.TestCase):
    def tearDown(self):
       self.hr.stop()
 
-   def testSimplePut(self):
-      """Test a simple put."""
+   def testPutBasic(self):
       self.assertEquals(self.hr.put(self.k(), self.v()), 0)
 
-   def testSimplePutGet(self):
-      """Test a simple put and get."""
+   def testPutWithLifespan(self):
+      self.assertEquals(self.hr.put(self.k(), self.v(), 1, 0), 0)
+      time.sleep(2)
+      self.assertEquals(self.hr.get(self.k()), None)
+
+   def testGetNotPresent(self):
+      self.assertEquals(self.hr.get(self.k()), None)
+
+   def testGetBasic(self):
       self.assertEquals(self.hr.put(self.k(), self.v()), 0)
       self.assertEquals(self.hr.get(self.k()), self.v())
 
