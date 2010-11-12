@@ -20,7 +20,7 @@ class HotRodStart extends SingleCacheManagerTest {
       cacheManager
    }
 
-   protected def createStartHotRodServer(cacheManager: EmbeddedCacheManager) = startHotRodServer(cacheManager, 11311)
+   protected def createStartHotRodServer(cacheManager: EmbeddedCacheManager) = startHotRodServer(cacheManager, 11222)
 
    @Test
    def start() {
