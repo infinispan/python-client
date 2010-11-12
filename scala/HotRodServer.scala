@@ -1,5 +1,3 @@
-package acme
-
 import org.testng.annotations.Test
 import org.infinispan.test.SingleCacheManagerTest
 import org.infinispan.manager.EmbeddedCacheManager
@@ -12,7 +10,7 @@ import org.infinispan.server.hotrod.test.HotRodTestingUtil._
  * @since // TODO
  */
 @Test(groups = Array("functional"), testName = "acme.HotRodFunctionalTest")
-class HotRodStart extends SingleCacheManagerTest {
+class HotRodServer extends SingleCacheManagerTest {
 
    override def createCacheManager: EmbeddedCacheManager = {
       val cacheManager = TestCacheManagerFactory.createLocalCacheManager(true);
@@ -26,7 +24,6 @@ class HotRodStart extends SingleCacheManagerTest {
    def start() {
       while(true)
          Thread.sleep(2000)
-   }
-   
+   }   
 
 }

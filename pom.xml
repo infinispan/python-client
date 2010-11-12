@@ -64,8 +64,7 @@
 
    <build>
       <finalName>infinispan</finalName>
-      <sourceDirectory>src/main/scala</sourceDirectory>
-      <testSourceDirectory>src/test/scala</testSourceDirectory>
+      <testSourceDirectory>scala</testSourceDirectory>
 
       <plugins>
          <plugin>
