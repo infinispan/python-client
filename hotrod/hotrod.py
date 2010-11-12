@@ -33,6 +33,9 @@ GET_RES_LEN = struct.calcsize(GET_RES_FMT)
 PUT_WITH_PREV_FMT = ">s"
 PUT_WITH_PREV_LEN = struct.calcsize(PUT_WITH_PREV_FMT)
 
+# TODO: Find a way to consolidate GET_RES and PUT_WITH_PREV
+# TODO: Find a way to, given the fmt, calculate the len and viceversa without relying on constants for both
+
 class HotRodClient(object):
 
    def __init__(self, host = '127.0.0.1', port = 11222):
@@ -77,42 +80,18 @@ class HotRodClient(object):
          if status == 2:
             return None
          else:
-            if status != 0:
-               raise HotRodError(status, rv)
+            if status == 0:
+               return self._readValue(GET_RES_LEN, GET_RES_FMT)
             else:
-               response = self._readData(GET_RES_LEN)
-               value = struct.unpack(GET_RES_FMT, response)
-               local_DecodeVarint = decoder._DecodeVarint32
-               (length, pos) = local_DecodeVarint(value, 0)
-               rv = ""
-               while length > 0:
-                  data = self.s.recv(length)
-                  if data == '':
-                     raise exceptions.EOFError("Got empty data (remote died?).")
-                  rv += data
-                  length -= len(data)
-               assert (magic == RES_MAGIC), "Got magic: %d" % magic
-               return rv
+               raise HotRodError(status, rv)
       else:
-         if status != 0:
-            raise HotRodError(status, rv)
-         else:
+         if status == 0:
             if (retprev):
-               response = self._readData(PUT_WITH_PREV_LEN)
-               value = struct.unpack(PUT_WITH_PREV_FMT, response)
-               local_DecodeVarint = decoder._DecodeVarint32
-               (length, pos) = local_DecodeVarint(value, 0)
-               prev = ""
-               while length > 0:
-                  data = self.s.recv(length)
-                  if data == '':
-                     raise exceptions.EOFError("Got empty data (remote died?).")
-                  prev += data
-                  length -= len(data)
-               assert (magic == RES_MAGIC), "Got magic: %d" % magic
-               return prev
+               return self._readValue(PUT_WITH_PREV_LEN, PUT_WITH_PREV_FMT)
             else:
                return status
+         else:
+            raise HotRodError(status, rv)
 
    def _readData(self, expectedlen):
       data = ""
@@ -124,6 +103,20 @@ class HotRodClient(object):
          data += tmp
       assert len(data) == datalen
       return data
+
+   def _readValue(self, expectedlen, expectedfmt):
+      response = self._readData(expectedlen)
+      valuewithlen = struct.unpack(expectedfmt, response)
+      local_DecodeVarint = decoder._DecodeVarint32
+      (length, pos) = local_DecodeVarint(valuewithlen, 0)
+      value = ""
+      while length > 0:
+         data = self.s.recv(length)
+         if data == '':
+            raise exceptions.EOFError("Got empty data (remote died?).")
+         value += data
+         length -= len(data)
+      return value
 
 class HotRodError(exceptions.Exception):
    """Error raised when a command fails."""
