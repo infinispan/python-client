@@ -60,6 +60,14 @@ class FunctionalTest(unittest.TestCase):
       self.assertEquals(self.hr.put(self.k(), self.v()), 0)
       self.assertEquals(self.hr.get(self.k()), self.v())
 
+   # TODO: test put on a named cache, as opposed on default
+   # TODO: test put on a topology cache and see error handling
+   # TODO: test put on an undefined cache and see error handling
+   # TODO: test put if absent with: exist, no exist, with lifespan/maxidle, and return previous
+   # TODO: test replace with: exist, no exist, with lifespan/maxidle, and return previous
+   # TODO: test get with version, replace if unmodified, remove, remove if umodified,
+   # TODO: test contains key, clear, stats, ping, bulk get
+
    def k(self):
       return self.withMethod("k-")
 
