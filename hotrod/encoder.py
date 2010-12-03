@@ -1,4 +1,4 @@
-
+# TODO: refactor to hotrod.py
 
 def _VarintEncoder():
   """Return an encoder for a basic varint value (does not include tag)."""

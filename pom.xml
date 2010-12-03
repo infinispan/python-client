@@ -12,8 +12,8 @@
    <version>1.0.0-SNAPSHOT</version>   
 
    <properties>
-      <version.infinispan>4.2.0.ALPHA2</version.infinispan>
-      <version.scala>2.8.0</version.scala>
+      <version.infinispan>4.2.0.CR3</version.infinispan>
+      <version.scala>2.8.1</version.scala>
       <version.testng>5.11</version.testng>
    </properties>
 
