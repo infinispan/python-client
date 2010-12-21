@@ -9,8 +9,10 @@ Copyright (c) 2010  Galder Zamarreño
 
 import unittest
 import time
+import hotrod
 
 from hotrod import HotRodClient
+from hotrod import HotRodError
 
 class FunctionalTest(unittest.TestCase):
   def setUp(self):
@@ -66,8 +68,8 @@ class FunctionalTest(unittest.TestCase):
       self.assertEquals(self.hr.get(self._k(i)), None)
 
   def test_operate_on_named_cache(self):
-    self.cache_name = "AnotherCache"
-    self.another_hr = HotRodClient('127.0.0.1', 11222, self.cache_name)
+    cache_name = "AnotherCache"
+    self.another_hr = HotRodClient('127.0.0.1', 11222, cache_name)
     try:
       self.assertEquals(self.hr.get(self._k()), None)
       self.assertEquals(self.another_hr.get(self._k()), None)
@@ -88,9 +90,12 @@ class FunctionalTest(unittest.TestCase):
       self.another_hr.clear()
       self.another_hr.stop()
 
-  # TODO: test put/get/clear on an undefined cache
+  def test_operate_on_undefined_cache(self):
+    self._operate_on_undefined_cache(self._hr_get)
+    self._operate_on_undefined_cache(self._hr_put)
+    self._operate_on_undefined_cache(self._hr_clear)
+
   # TODO: test put on a topology cache and see error handling
-  # TODO: test put on an undefined cache and see error handling
   # TODO: test put if absent with: exist, no exist, with lifespan/maxidle, and return previous
   # TODO: test replace with: exist, no exist, with lifespan/maxidle, and return previous
   # TODO: test get with version, replace if unmodified, remove, remove if umodified,
@@ -110,6 +115,26 @@ class FunctionalTest(unittest.TestCase):
 
   def _with_method(self, prefix):
     return prefix + self._testMethodName
+
+  def _hr_get(self, hr):
+    hr.get(self._k())
+
+  def _hr_put(self, hr):
+    hr.put(self._k(), self._v())
+
+  def _hr_clear(self, hr):
+    hr.clear()
+
+  def _operate_on_undefined_cache(self, hrf):
+    cache_name = "UndefinedCache"
+    self.another_hr = HotRodClient('127.0.0.1', 11222, cache_name)
+    try:
+      hrf(self.another_hr)
+      raise "Operating on an undefined cache should have returned error"
+    except HotRodError, e:
+      self.assertEquals(e.status, hotrod.SERVER_ERROR)
+    finally:
+      self.another_hr.stop()
 
 if __name__ == '__main__':
   unittest.main()

@@ -25,6 +25,8 @@ GET_RES = 0x04
 CLEAR_REQ = 0x13
 CLEAR_RES = 0x14
 
+SERVER_ERROR = 0x85
+
 # Without cache name
 # magic, msg_id, version, op_code,
 # cache name length (0),
@@ -107,7 +109,7 @@ class HotRodClient(object):
       if st == 0:
         return
       else:
-        self._raise_error(status) # TODO test
+        self._raise_error(st) # TODO test
     else:
       if val == '':
         return self._get_retrieval_resp(st)
@@ -121,7 +123,7 @@ class HotRodClient(object):
       if status == 0:
         return self._read_value(GET_RES_LEN, GET_RES_FMT)
       else:
-        self._raise_error(status) #TODO test
+        self._raise_error(status)
 
   def _get_store_resp(self, status, ret_prev):
     if status == 0:
@@ -130,7 +132,7 @@ class HotRodClient(object):
       else:
          return status
     else:
-        self._raise_error(status) # TODO test
+        self._raise_error(status)
 
   def _read_data(self, expected_len):
     data = ""
