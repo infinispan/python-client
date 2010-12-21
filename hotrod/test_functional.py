@@ -65,7 +65,30 @@ class FunctionalTest(unittest.TestCase):
     for i in range(10):
       self.assertEquals(self.hr.get(self._k(i)), None)
 
-  # TODO: test put on a named cache, as opposed on default
+  def test_operate_on_named_cache(self):
+    self.cache_name = "AnotherCache"
+    self.another_hr = HotRodClient('127.0.0.1', 11222, self.cache_name)
+    try:
+      self.assertEquals(self.hr.get(self._k()), None)
+      self.assertEquals(self.another_hr.get(self._k()), None)
+      # Store only in default cache
+      self.assertEquals(self.hr.put(self._k(), self._v()), 0)
+      self.assertEquals(self.hr.get(self._k()), self._v())
+      self.assertEquals(self.another_hr.get(self._k()), None)
+      # Clear default and put on another cache
+      self.assertEquals(self.hr.clear(), None)
+      self.assertEquals(self.another_hr.put(self._k(), self._v()), 0)
+      self.assertEquals(self.another_hr.get(self._k()), self._v())
+      self.assertEquals(self.hr.get(self._k()), None)
+      # Clear another cache
+      self.assertEquals(self.another_hr.clear(), None)
+      self.assertEquals(self.hr.get(self._k()), None)
+      self.assertEquals(self.another_hr.get(self._k()), None)
+    finally:
+      self.another_hr.clear()
+      self.another_hr.stop()
+
+  # TODO: test put/get/clear on an undefined cache
   # TODO: test put on a topology cache and see error handling
   # TODO: test put on an undefined cache and see error handling
   # TODO: test put if absent with: exist, no exist, with lifespan/maxidle, and return previous
@@ -78,12 +101,6 @@ class FunctionalTest(unittest.TestCase):
       return self._with_method("k-")
     else:
       return self._with_method("k%d-" % index)
-
-#  def _k(self, index):
-#    return self._with_method("k%d-" % index)
-
-#  def _v(self):
-#    return self._with_method("v-")
 
   def _v(self, index=-1):
     if index == -1:

@@ -25,23 +25,37 @@ GET_RES = 0x04
 CLEAR_REQ = 0x13
 CLEAR_RES = 0x14
 
-# magic, msg_id, version, op_code, cache name legth + cache, flag, clientint, topoid, txtypeid,
+# Without cache name
+# magic, msg_id, version, op_code,
+# cache name length (0),
+# flag, clientint, topoid, txtypeid
 REQ_FMT = ">BBBBBBBBB"
+
+# With cache name, separate the start and end of header
+# start: magic, msg_id, version, op_code,
+REQ_START_FMT = ">BBBB"
+# end: flag, clientint, topoid, txtypeid
+REQ_END_FMT = ">BBBB"
+# And in between them: cache_name_length + cache name
+
 # magic, msg_id, op_code, status, topology_mark
-RES_HEADER_FMT = ">BBBBB"
-RES_HEADER_LEN = struct.calcsize(RES_HEADER_FMT)
+RES_H_FMT = ">BBBBB"
+RES_H_LEN = struct.calcsize(RES_H_FMT)
 GET_RES_FMT = ">s"
 GET_RES_LEN = struct.calcsize(GET_RES_FMT)
 PUT_WITH_PREV_FMT = ">s"
 PUT_WITH_PREV_LEN = struct.calcsize(PUT_WITH_PREV_FMT)
+ERROR_FMT = ">s"
+ERROR_LEN = struct.calcsize(ERROR_FMT)
 
-# TODO: Find a way to consolidate GET_RES and PUT_WITH_PREV
+# TODO: Find a way to consolidate GET_RES, PUT_WITH_PREV and ERROR
 # TODO: Find a way to, given the fmt, calculate the len and viceversa without relying on constants for both
 
 class HotRodClient(object):
-  def __init__(self, host='127.0.0.1', port=11222):
+  def __init__(self, host='127.0.0.1', port=11222, c_name=''):
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.s.connect_ex((host, port))
+    self.c_name = c_name
 
   def stop(self):
     self.s.close()
@@ -65,35 +79,40 @@ class HotRodClient(object):
     else:
       flag = 0
 
-    # TODO: Make message id counter variable and atomic(?)
-    msg = struct.pack(REQ_FMT, REQ_MAGIC, 0x01, VERSION_10,
-                      cmd, 0, flag, 0x01, 0, 0)
+      # TODO: Make message id counter variable and atomic(?)
+    if (self.c_name == ''):
+      msg = struct.pack(REQ_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd,
+                        0, flag, 0x01, 0, 0)
+    else:
+      start = struct.pack(REQ_START_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd)
+      end = struct.pack(REQ_END_FMT, flag, 0x01, 0, 0)
+      msg = start + encoder._VarintBytes(len(self.c_name)) + self.c_name + end
 
     if key == '':
       self.s.send(msg) # i.e. clear
     else:
-      if val == '':
-        self.s.send(msg + encoder._VarintBytes(len(key)) + key) # i.e. get, contains_key...
+      if val == '': # i.e. get, contains_key...
+        self.s.send(msg + encoder._VarintBytes(len(key)) + key)
       else:
         self.s.send(msg + encoder._VarintBytes(len(key)) + key +
                     encoder._VarintBytes(lifespan) + encoder._VarintBytes(max_idle) +
                     encoder._VarintBytes(len(val)) + val) # i.e. put
 
   def _get_resp(self, key, val, ret_prev):
-    header = self._read_data(RES_HEADER_LEN)
-    magic, msg_id, op_code, status, topology_mark = struct.unpack(RES_HEADER_FMT, header)
+    header = self._read_data(RES_H_LEN)
+    magic, msg_id, op_code, st, topo_mark = struct.unpack(RES_H_FMT, header)
     assert (magic == RES_MAGIC), "Got magic: %d" % magic
 
     if (key == ''):
-      if status == 0:
+      if st == 0:
         return
       else:
-        raise HotRodError(status, rv) # TODO test and sort out rv
+        self._raise_error(status) # TODO test
     else:
       if val == '':
-        return self._get_retrieval_resp(status)
+        return self._get_retrieval_resp(st)
       else:
-        return self._get_store_resp(status, ret_prev)
+        return self._get_store_resp(st, ret_prev)
 
   def _get_retrieval_resp(self, status):
     if status == 2:
@@ -102,7 +121,7 @@ class HotRodClient(object):
       if status == 0:
         return self._read_value(GET_RES_LEN, GET_RES_FMT)
       else:
-        raise HotRodError(status, rv)
+        self._raise_error(status) #TODO test
 
   def _get_store_resp(self, status, ret_prev):
     if status == 0:
@@ -111,7 +130,7 @@ class HotRodClient(object):
       else:
          return status
     else:
-        raise HotRodError(status, rv) # TODO test and sort out rv
+        self._raise_error(status) # TODO test
 
   def _read_data(self, expected_len):
     data = ""
@@ -137,6 +156,10 @@ class HotRodClient(object):
       value += data
       length -= len(data)
     return value
+
+  def _raise_error(self, status):
+    error = self._read_value(ERROR_LEN, ERROR_FMT)
+    raise HotRodError(status, error)
 
 class HotRodError(exceptions.Exception):
   """Error raised when a command fails."""

@@ -1,3 +1,4 @@
+import org.infinispan.config.Configuration
 import org.testng.annotations.Test
 import org.infinispan.test.SingleCacheManagerTest
 import org.infinispan.manager.EmbeddedCacheManager
@@ -13,7 +14,8 @@ import org.infinispan.server.hotrod.test.HotRodTestingUtil._
 class HotRodServer extends SingleCacheManagerTest {
 
    override def createCacheManager: EmbeddedCacheManager = {
-      val cacheManager = TestCacheManagerFactory.createLocalCacheManager(true);
+      val cacheManager = TestCacheManagerFactory.createLocalCacheManager(true)
+      cacheManager.defineConfiguration("AnotherCache", new Configuration)
       val hotRodServer = createStartHotRodServer(cacheManager)
       cacheManager
    }
