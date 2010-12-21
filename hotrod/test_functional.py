@@ -91,9 +91,9 @@ class FunctionalTest(unittest.TestCase):
       self.another_hr.stop()
 
   def test_operate_on_undefined_cache(self):
-    self._operate_on_undefined_cache(self._hr_get)
-    self._operate_on_undefined_cache(self._hr_put)
-    self._operate_on_undefined_cache(self._hr_clear)
+    self._operate_on_undefined_cache(lambda hr: hr.get(self._k()))
+    self._operate_on_undefined_cache(lambda hr: hr.put(self._k(), self._v()))
+    self._operate_on_undefined_cache(lambda hr: hr.clear())
 
   # TODO: test put on a topology cache and see error handling
   # TODO: test put if absent with: exist, no exist, with lifespan/maxidle, and return previous
@@ -115,15 +115,6 @@ class FunctionalTest(unittest.TestCase):
 
   def _with_method(self, prefix):
     return prefix + self._testMethodName
-
-  def _hr_get(self, hr):
-    hr.get(self._k())
-
-  def _hr_put(self, hr):
-    hr.put(self._k(), self._v())
-
-  def _hr_clear(self, hr):
-    hr.clear()
 
   def _operate_on_undefined_cache(self, hrf):
     cache_name = "UndefinedCache"

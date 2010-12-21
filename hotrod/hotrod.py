@@ -10,7 +10,6 @@ Copyright (c) 2010  Galder Zamarreño
 import socket
 import struct
 
-import encoder
 import decoder
 import exceptions
 
@@ -88,17 +87,17 @@ class HotRodClient(object):
     else:
       start = struct.pack(REQ_START_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd)
       end = struct.pack(REQ_END_FMT, flag, 0x01, 0, 0)
-      msg = start + encoder._VarintBytes(len(self.c_name)) + self.c_name + end
+      msg = start + to_varint(len(self.c_name)) + self.c_name + end
 
     if key == '':
       self.s.send(msg) # i.e. clear
     else:
       if val == '': # i.e. get, contains_key...
-        self.s.send(msg + encoder._VarintBytes(len(key)) + key)
+        self.s.send(msg + to_varint(len(key)) + key)
       else:
-        self.s.send(msg + encoder._VarintBytes(len(key)) + key +
-                    encoder._VarintBytes(lifespan) + encoder._VarintBytes(max_idle) +
-                    encoder._VarintBytes(len(val)) + val) # i.e. put
+        self.s.send(msg + to_varint(len(key)) + key +
+                    to_varint(lifespan) + to_varint(max_idle) +
+                    to_varint(len(val)) + val) # i.e. put
 
   def _get_resp(self, key, val, ret_prev):
     header = self._read_data(RES_H_LEN)
@@ -109,7 +108,7 @@ class HotRodClient(object):
       if st == 0:
         return
       else:
-        self._raise_error(st) # TODO test
+        self._raise_error(st)
     else:
       if val == '':
         return self._get_retrieval_resp(st)
@@ -148,8 +147,7 @@ class HotRodClient(object):
   def _read_value(self, expected_len, expected_fmt):
     response = self._read_data(expected_len)
     value_with_len = struct.unpack(expected_fmt, response)
-    local_DecodeVarint = decoder._DecodeVarint32
-    (length, pos) = local_DecodeVarint(value_with_len, 0)
+    (length, pos) = from_varint(value_with_len)
     value = ""
     while length > 0:
       data = self.s.recv(length)
@@ -176,3 +174,36 @@ class HotRodError(exceptions.Exception):
 
   def __repr__(self):
     return "<Hot Rod error #%d ``%s''>" % (self.status, self.msg)
+
+def to_varint(value):
+  """Encode the given integer as a varint and return the bytes.
+  This is only called at startup time so it doesn't need to be fast."""
+  pieces = []
+  _encode_varint(pieces.append, value)
+  return "".join(pieces)
+
+def _encode_varint(write, value):
+  bits = value & 0x7f
+  value >>= 7
+  while value:
+    write(chr(0x80|bits))
+    bits = value & 0x7f
+    value >>= 7
+  return write(chr(bits))
+
+def from_varint(buffer, pos=0):
+  return _decode_varint((1 << 32) - 1, buffer, pos)
+
+def _decode_varint(mask, buffer, pos):
+  result = 0
+  shift = 0
+  while 1:
+    b = ord(buffer[pos])
+    result |= ((b & 0x7f) << shift)
+    pos += 1
+    if not (b & 0x80):
+      result &= mask
+      return (result, pos)
+    shift += 7
+    if shift >= 64:
+      raise _DecodeError("Too many bytes when decoding varint.")
