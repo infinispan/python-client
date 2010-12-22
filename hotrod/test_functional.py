@@ -91,15 +91,24 @@ class FunctionalTest(unittest.TestCase):
       self.another_hr.stop()
 
   def test_operate_on_undefined_cache(self):
-    self._operate_on_undefined_cache(lambda hr: hr.get(self._k()))
-    self._operate_on_undefined_cache(lambda hr: hr.put(self._k(), self._v()))
-    self._operate_on_undefined_cache(lambda hr: hr.clear())
+    expr = lambda msg: "CacheNotFoundException" in msg
+    self._operate_on_wrong_cache(lambda hr: hr.get(self._k()), expr)
+    self._operate_on_wrong_cache(lambda hr: hr.put(self._k(), self._v()), expr)
+    self._operate_on_wrong_cache(lambda hr: hr.clear(), expr)
 
-  # TODO: test put on a topology cache and see error handling
-  # TODO: test put if absent with: exist, no exist, with lifespan/maxidle, and return previous
-  # TODO: test replace with: exist, no exist, with lifespan/maxidle, and return previous
-  # TODO: test get with version, replace if unmodified, remove, remove if umodified,
-  # TODO: test contains key, stats, ping, bulk get
+  def test_operate_on_topology_cache(self):
+    expr = lambda msg: "Remote requests are not allowed to topology cache." in msg
+    cache_name = "___hotRodTopologyCache"
+    self._operate_on_wrong_cache(lambda hr: hr.get(self._k()), expr, cache_name)
+    self._operate_on_wrong_cache(lambda hr: hr.put(self._k(), self._v()), expr, cache_name)
+    self._operate_on_wrong_cache(lambda hr: hr.clear(), expr, cache_name)
+
+  # TODO test put if absent with: exist, no exist, with lifespan/maxidle, and return previous
+  # TODO test replace with: exist, no exist, with lifespan/maxidle, and return previous
+  # TODO test get with version, replace if unmodified, remove, remove if umodified,
+  # TODO test contains key, stats, ping, bulk get
+  # TODO Test get() calls that return longish values!
+  # TODO Test with put that returns previous as well, so that previous is rather long as well
 
   def _k(self, index=-1):
     if index == -1:
@@ -116,14 +125,14 @@ class FunctionalTest(unittest.TestCase):
   def _with_method(self, prefix):
     return prefix + self._testMethodName
 
-  def _operate_on_undefined_cache(self, hrf):
-    cache_name = "UndefinedCache"
+  def _operate_on_wrong_cache(self, hr_f, expr, cache_name="UndefinedCache"):
     self.another_hr = HotRodClient('127.0.0.1', 11222, cache_name)
     try:
-      hrf(self.another_hr)
+      hr_f(self.another_hr)
       raise "Operating on an undefined cache should have returned error"
     except HotRodError, e:
       self.assertEquals(e.status, hotrod.SERVER_ERROR)
+      self.assertTrue(expr(e.msg))
     finally:
       self.another_hr.stop()
 

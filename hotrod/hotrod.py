@@ -10,7 +10,6 @@ Copyright (c) 2010  Galder Zamarreño
 import socket
 import struct
 
-import decoder
 import exceptions
 
 REQ_MAGIC = 0xA0
@@ -42,21 +41,14 @@ REQ_END_FMT = ">BBBB"
 # magic, msg_id, op_code, status, topology_mark
 RES_H_FMT = ">BBBBB"
 RES_H_LEN = struct.calcsize(RES_H_FMT)
-GET_RES_FMT = ">s"
-GET_RES_LEN = struct.calcsize(GET_RES_FMT)
-PUT_WITH_PREV_FMT = ">s"
-PUT_WITH_PREV_LEN = struct.calcsize(PUT_WITH_PREV_FMT)
-ERROR_FMT = ">s"
-ERROR_LEN = struct.calcsize(ERROR_FMT)
 
-# TODO: Find a way to consolidate GET_RES, PUT_WITH_PREV and ERROR
 # TODO: Find a way to, given the fmt, calculate the len and viceversa without relying on constants for both
 
 class HotRodClient(object):
-  def __init__(self, host='127.0.0.1', port=11222, c_name=''):
+  def __init__(self, host='127.0.0.1', port=11222, cache_name=''):
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.s.connect_ex((host, port))
-    self.c_name = c_name
+    self.cache_name = cache_name
 
   def stop(self):
     self.s.close()
@@ -75,19 +67,19 @@ class HotRodClient(object):
     return self._get_resp(key, val, ret_prev)
 
   def _send_cmd(self, cmd, key, val, lifespan, max_idle, ret_prev):
-    if (ret_prev):
+    if ret_prev:
       flag = 0x01
     else:
       flag = 0
 
       # TODO: Make message id counter variable and atomic(?)
-    if (self.c_name == ''):
+    if self.cache_name == '':
       msg = struct.pack(REQ_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd,
                         0, flag, 0x01, 0, 0)
     else:
       start = struct.pack(REQ_START_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd)
       end = struct.pack(REQ_END_FMT, flag, 0x01, 0, 0)
-      msg = start + to_varint(len(self.c_name)) + self.c_name + end
+      msg = start + to_varint(len(self.cache_name)) + self.cache_name + end
 
     if key == '':
       self.s.send(msg) # i.e. clear
@@ -100,12 +92,12 @@ class HotRodClient(object):
                     to_varint(len(val)) + val) # i.e. put
 
   def _get_resp(self, key, val, ret_prev):
-    header = self._read_data(RES_H_LEN)
+    header = self._read_bytes(RES_H_LEN)
     magic, msg_id, op_code, st, topo_mark = struct.unpack(RES_H_FMT, header)
     assert (magic == RES_MAGIC), "Got magic: %d" % magic
 
-    if (key == ''):
-      if st == 0:
+    if key == '':
+      if not st:
         return
       else:
         self._raise_error(st)
@@ -119,46 +111,36 @@ class HotRodClient(object):
     if status == 2:
       return None
     else:
-      if status == 0:
-        return self._read_value(GET_RES_LEN, GET_RES_FMT)
+      if not status:
+        return self._read_ranged_bytes()
       else:
         self._raise_error(status)
 
   def _get_store_resp(self, status, ret_prev):
-    if status == 0:
-      if (ret_prev):
-        return self._read_value(PUT_WITH_PREV_LEN, PUT_WITH_PREV_FMT)
+    if not status:
+      if ret_prev:
+        return self._read_ranged_bytes()
       else:
          return status
     else:
         self._raise_error(status)
 
-  def _read_data(self, expected_len):
-    data = ""
-    data_len = expected_len
-    while len(data) < data_len:
-      tmp = self.s.recv(data_len - len(data))
+  def _read_ranged_bytes(self):
+    return self._read_bytes(from_varint(self.s))
+
+  def _read_bytes(self, expected_len):
+    bytes = ""
+    bytes_len = expected_len
+    while len(bytes) < bytes_len:
+      tmp = self.s.recv(bytes_len - len(bytes))
       if tmp == '':
         raise exceptions.EOFError("Got empty data (remote died?).")
-      data += tmp
-    assert len(data) == data_len
-    return data
-
-  def _read_value(self, expected_len, expected_fmt):
-    response = self._read_data(expected_len)
-    value_with_len = struct.unpack(expected_fmt, response)
-    (length, pos) = from_varint(value_with_len)
-    value = ""
-    while length > 0:
-      data = self.s.recv(length)
-      if data == '':
-        raise exceptions.EOFError("Got empty data (remote died?).")
-      value += data
-      length -= len(data)
-    return value
+      bytes += tmp
+    assert len(bytes) == bytes_len
+    return bytes
 
   def _raise_error(self, status):
-    error = self._read_value(ERROR_LEN, ERROR_FMT)
+    error = self._read_ranged_bytes()
     raise HotRodError(status, error)
 
 class HotRodError(exceptions.Exception):
@@ -191,19 +173,23 @@ def _encode_varint(write, value):
     value >>= 7
   return write(chr(bits))
 
-def from_varint(buffer, pos=0):
-  return _decode_varint((1 << 32) - 1, buffer, pos)
+def from_varint(socket):
+  """ Decode a varint from the socket reading one byte at the time """
+  return _decode_varint((1 << 32) - 1, socket)
 
-def _decode_varint(mask, buffer, pos):
+def _decode_varint(mask, socket):
   result = 0
   shift = 0
   while 1:
-    b = ord(buffer[pos])
+    b = ord(socket.recv(1))
     result |= ((b & 0x7f) << shift)
-    pos += 1
     if not (b & 0x80):
       result &= mask
-      return (result, pos)
+      return result
     shift += 7
     if shift >= 64:
-      raise _DecodeError("Too many bytes when decoding varint.")
+      raise DecodeError("Too many bytes when decoding varint.")
+
+# TODO Add methods to encode/decode varlong and check the spec to see where they need applying
+
+class DecodeError(Exception): pass
