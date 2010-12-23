@@ -17,13 +17,10 @@ RES_MAGIC = 0xA1
 
 VERSION_10 = 10
 PUT_REQ = 0x01
-PUT_RES = 0x02
 GET_REQ = 0x03
-GET_RES = 0x04
 PUT_IF_ABSENT_REQ = 0x05
-PUT_IF_ABSENT_RES = 0x06
+REPLACE_REQ = 0x07
 CLEAR_REQ = 0x13
-CLEAR_RES = 0x14
 
 SUCCESS = 0x00
 NOT_EXECUTED = 0x01
@@ -73,6 +70,9 @@ class HotRodClient(object):
 
   def put_if_absent(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
     return self._do_cmd(PUT_IF_ABSENT_REQ, key, val, lifespan, max_idle, ret_prev)
+
+  def replace(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
+    return self._do_cmd(REPLACE_REQ, key, val, lifespan, max_idle, ret_prev)
 
   def clear(self):
     return self._do_cmd(CLEAR_REQ, '', '', 0, 0, False)

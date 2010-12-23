@@ -106,6 +106,7 @@ class FunctionalTest(unittest.TestCase):
     self._expect_error(lambda hr: hr.clear(), expr, cache_name)
 
   def test_put_if_absent(self):
+    # If key not present and then when present
     self.assertEquals(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
     self.assertEquals(self.hr.put_if_absent(self.k(), self.v(2)), NOT_EXECUTED)
     # With lifespan
@@ -125,7 +126,30 @@ class FunctionalTest(unittest.TestCase):
     # Return previous on a previously non-existing key
     self.assertEquals(self.hr.put_if_absent(self.k(5), new, 0, 0, True), (SUCCESS, None))
 
-  # TODO test replace with: exist, no exist, with lifespan/maxidle, and return previous
+  def test_replace(self):
+    # If key not present and then when present
+    self.assertEquals(self.hr.replace(self.k(), self.v()), NOT_EXECUTED)
+    self.assertEquals(self.hr.put_if_absent(self.k(2), self.v()), SUCCESS)
+    self.assertEquals(self.hr.replace(self.k(2), self.v(2)), SUCCESS)
+    # With lifespan
+    self.assertEquals(self.hr.put_if_absent(self.k(3), self.v()), SUCCESS)
+    self.assertEquals(self.hr.replace(self.k(3), self.v(2), 1, 0), SUCCESS)
+    time.sleep(1.1)
+    self.assertEquals(self.hr.get(self.k(3)), None)
+    # With maxidle
+    self.assertEquals(self.hr.put_if_absent(self.k(4), self.v()), SUCCESS)
+    self.assertEquals(self.hr.replace(self.k(4), self.v(2), 0, 1), SUCCESS)
+    time.sleep(1.1)
+    self.assertEquals(self.hr.get(self.k(4)), None)
+    # Returning previous
+    old = self.v()
+    self.assertEquals(self.hr.put_if_absent(self.k(5), old), SUCCESS)
+    new = self.v(2)
+    self.assertEquals(self.hr.replace(self.k(5), new, 0, 0, True), (SUCCESS, old))
+    self.assertEquals(self.hr.get(self.k(5)), new)
+    # Return previous on a previously non-existing key
+    self.assertEquals(self.hr.replace(self.k(6), new, 0, 0, True), (NOT_EXECUTED, None))
+
   # TODO test get with version, replace if unmodified, remove, remove if umodified,
   # TODO test contains key, stats, ping, bulk get
   # TODO Test get() calls that return longish values!
