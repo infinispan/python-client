@@ -20,10 +20,22 @@ PUT_REQ = 0x01
 PUT_RES = 0x02
 GET_REQ = 0x03
 GET_RES = 0x04
+PUT_IF_ABSENT_REQ = 0x05
+PUT_IF_ABSENT_RES = 0x06
 CLEAR_REQ = 0x13
 CLEAR_RES = 0x14
 
+SUCCESS = 0x00
+NOT_EXECUTED = 0x01
+KEY_DOES_NOT_EXIST = 0x02
+OK_STATUS = [SUCCESS, NOT_EXECUTED, KEY_DOES_NOT_EXIST]
+
+INVALID_MAGIC_MSG_ID = 0x81
+UNKNOWN_CMD = 0x82
+UNKNOWN_VERSION = 0x83
+PARSE_ERROR = 0x84
 SERVER_ERROR = 0x85
+CMD_TIMED_OUT = 0x86
 
 # Without cache name
 # magic, msg_id, version, op_code,
@@ -58,6 +70,9 @@ class HotRodClient(object):
 
   def get(self, key):
     return self._do_cmd(GET_REQ, key, '', 0, 0, False)
+
+  def put_if_absent(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
+    return self._do_cmd(PUT_IF_ABSENT_REQ, key, val, lifespan, max_idle, ret_prev)
 
   def clear(self):
     return self._do_cmd(CLEAR_REQ, '', '', 0, 0, False)
@@ -97,7 +112,7 @@ class HotRodClient(object):
     assert (magic == RES_MAGIC), "Got magic: %d" % magic
 
     if key == '':
-      if not st:
+      if st in OK_STATUS:
         return
       else:
         self._raise_error(st)
@@ -108,22 +123,21 @@ class HotRodClient(object):
         return self._get_store_resp(st, ret_prev)
 
   def _get_retrieval_resp(self, status):
-    if status == 2:
+    if status == KEY_DOES_NOT_EXIST:
       return None
     else:
-      if not status:
+      if status == SUCCESS:
         return self._read_ranged_bytes()
       else:
         self._raise_error(status)
 
   def _get_store_resp(self, status, ret_prev):
-    if not status:
-      if ret_prev:
-        return self._read_ranged_bytes()
-      else:
-         return status
+    if (status == SUCCESS or status == NOT_EXECUTED) and ret_prev:
+      return (status, self._read_ranged_bytes())
+    elif status in OK_STATUS:
+      return status
     else:
-        self._raise_error(status)
+      self._raise_error(status)
 
   def _read_ranged_bytes(self):
     return self._read_bytes(from_varint(self.s))
@@ -137,7 +151,10 @@ class HotRodClient(object):
         raise exceptions.EOFError("Got empty data (remote died?).")
       bytes += tmp
     assert len(bytes) == bytes_len
-    return bytes
+    if bytes == '':
+      return None
+    else:
+      return bytes
 
   def _raise_error(self, status):
     error = self._read_ranged_bytes()
