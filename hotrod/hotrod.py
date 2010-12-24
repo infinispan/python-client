@@ -14,13 +14,22 @@ import exceptions
 
 REQ_MAGIC = 0xA0
 RES_MAGIC = 0xA1
-
 VERSION_10 = 10
+
 PUT_REQ = 0x01
 GET_REQ = 0x03
 PUT_IF_ABSENT_REQ = 0x05
 REPLACE_REQ = 0x07
+GET_WITH_VERSION_REQ = 0x11
 CLEAR_REQ = 0x13
+
+GET_WITH_VERSION_RES = 0x12
+
+KEY_ONLY_REQ = [GET_REQ, GET_WITH_VERSION_REQ]
+KEY_LESS_REQ = [CLEAR_REQ]
+TO_RES_OP = lambda op: op + 1
+KEY_ONLY_RES = map(TO_RES_OP, KEY_ONLY_REQ)
+KEY_LESS_RES = map(TO_RES_OP, KEY_LESS_REQ)
 
 SUCCESS = 0x00
 NOT_EXECUTED = 0x01
@@ -51,7 +60,10 @@ REQ_END_FMT = ">BBBB"
 RES_H_FMT = ">BBBBB"
 RES_H_LEN = struct.calcsize(RES_H_FMT)
 
-# TODO: Find a way to, given the fmt, calculate the len and viceversa without relying on constants for both
+VERSION_FMT = ">Q"
+VERSION_LEN = struct.calcsize(VERSION_FMT)
+
+# TODO Add methods to encode/decode varlong and check the spec to see where they need applying
 
 class HotRodClient(object):
   def __init__(self, host='127.0.0.1', port=11222, cache_name=''):
@@ -63,25 +75,45 @@ class HotRodClient(object):
     self.s.close()
 
   def put(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
-    return self._do_cmd(PUT_REQ, key, val, lifespan, max_idle, ret_prev)
+    """ Associates the specified value with the specified key in the
+    remote cache. Optionally, it takes two parameters that control expiration
+    this cache entry: lifespan indicates the number of seconds the cache entry
+    should live in memory, and max idle time indicates the number of seconds
+    since last time the cache entry entry has been touched after which the
+    cache entry is considered up for expiration.
+
+    Unless returning previous value has been enabled, this operation returns
+    the result of the operation as a byte. The possible values are specified
+    in the Hot Rod protocol. When return previous has been enabled, this
+    operation returns a tuple containing the result of the operation and the
+    previous value if exists. If the key was not associated with any previous
+    value, it will return None in the second parameter of the tuple. """
+    return self._do_op(PUT_REQ, key, val, lifespan, max_idle, ret_prev)
 
   def get(self, key):
-    return self._do_cmd(GET_REQ, key, '', 0, 0, False)
+    return self._do_op(GET_REQ, key, '', 0, 0, False)
 
   def put_if_absent(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
-    return self._do_cmd(PUT_IF_ABSENT_REQ, key, val, lifespan, max_idle, ret_prev)
+    return self._do_op(PUT_IF_ABSENT_REQ, key, val, lifespan, max_idle, ret_prev)
 
   def replace(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
-    return self._do_cmd(REPLACE_REQ, key, val, lifespan, max_idle, ret_prev)
+    return self._do_op(REPLACE_REQ, key, val, lifespan, max_idle, ret_prev)
+
+  def get_versioned(self, key):
+    """ Returns the value associated with the given key and the version
+    associated with this key in the remote cache. The return is actually a
+    tuple where the value is the first element and version is the second. If
+    the key is not found, this method returns (None, 0). """
+    return self._do_op(GET_WITH_VERSION_REQ, key, '', 0, 0, False)
 
   def clear(self):
-    return self._do_cmd(CLEAR_REQ, '', '', 0, 0, False)
+    return self._do_op(CLEAR_REQ, '', '', 0, 0, False)
 
-  def _do_cmd(self, cmd, key, val, lifespan, max_idle, ret_prev):
-    self._send_cmd(cmd, key, val, lifespan, max_idle, ret_prev)
-    return self._get_resp(key, val, ret_prev)
+  def _do_op(self, op, key, val, lifespan, max_idle, ret_prev):
+    self._send_op(op, key, val, lifespan, max_idle, ret_prev)
+    return self._get_resp(ret_prev)
 
-  def _send_cmd(self, cmd, key, val, lifespan, max_idle, ret_prev):
+  def _send_op(self, op, key, val, lifespan, max_idle, ret_prev):
     if ret_prev:
       flag = 0x01
     else:
@@ -89,45 +121,50 @@ class HotRodClient(object):
 
       # TODO: Make message id counter variable and atomic(?)
     if self.cache_name == '':
-      msg = struct.pack(REQ_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd,
+      msg = struct.pack(REQ_FMT, REQ_MAGIC, 0x01, VERSION_10, op,
                         0, flag, 0x01, 0, 0)
     else:
-      start = struct.pack(REQ_START_FMT, REQ_MAGIC, 0x01, VERSION_10, cmd)
+      start = struct.pack(REQ_START_FMT, REQ_MAGIC, 0x01, VERSION_10, op)
       end = struct.pack(REQ_END_FMT, flag, 0x01, 0, 0)
       msg = start + to_varint(len(self.cache_name)) + self.cache_name + end
 
-    if key == '':
-      self.s.send(msg) # i.e. clear
+    if op in KEY_LESS_REQ:
+      self.s.send(msg)
+    elif op in KEY_ONLY_REQ:
+      self.s.send(msg + to_varint(len(key)) + key)
     else:
-      if val == '': # i.e. get, contains_key...
-        self.s.send(msg + to_varint(len(key)) + key)
-      else:
-        self.s.send(msg + to_varint(len(key)) + key +
-                    to_varint(lifespan) + to_varint(max_idle) +
-                    to_varint(len(val)) + val) # i.e. put
+      self.s.send(msg + to_varint(len(key)) + key +
+                  to_varint(lifespan) + to_varint(max_idle) +
+                  to_varint(len(val)) + val)
 
-  def _get_resp(self, key, val, ret_prev):
+  def _get_resp(self, ret_prev):
     header = self._read_bytes(RES_H_LEN)
-    magic, msg_id, op_code, st, topo_mark = struct.unpack(RES_H_FMT, header)
+    magic, msg_id, op, st, topo_mark = struct.unpack(RES_H_FMT, header)
     assert (magic == RES_MAGIC), "Got magic: %d" % magic
 
-    if key == '':
+    if op in KEY_LESS_RES:
       if st in OK_STATUS:
-        return
+        return st
       else:
         self._raise_error(st)
+    elif op in KEY_ONLY_RES:
+      return self._get_retrieval_resp(st, op)
     else:
-      if val == '':
-        return self._get_retrieval_resp(st)
-      else:
-        return self._get_store_resp(st, ret_prev)
+      return self._get_store_resp(st, ret_prev)
 
-  def _get_retrieval_resp(self, status):
+  def _get_retrieval_resp(self, status, op):
     if status == KEY_DOES_NOT_EXIST:
-      return None
+      if (op == GET_WITH_VERSION_RES):
+        return (None, 0)
+      else:
+        return None
     else:
       if status == SUCCESS:
-        return self._read_ranged_bytes()
+        if (op == GET_WITH_VERSION_RES):
+          version = struct.unpack(VERSION_FMT, self._read_bytes(VERSION_LEN))
+          return (self._read_ranged_bytes(), version)
+        else:
+          return self._read_ranged_bytes()
       else:
         self._raise_error(status)
 
@@ -206,7 +243,5 @@ def _decode_varint(mask, socket):
     shift += 7
     if shift >= 64:
       raise DecodeError("Too many bytes when decoding varint.")
-
-# TODO Add methods to encode/decode varlong and check the spec to see where they need applying
 
 class DecodeError(Exception): pass

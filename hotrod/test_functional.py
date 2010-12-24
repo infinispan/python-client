@@ -65,7 +65,7 @@ class FunctionalTest(unittest.TestCase):
     for i in range(10):
       self.assertEquals(self.hr.put(self.k(i), self.v(i)), SUCCESS)
       self.assertEquals(self.hr.get(self.k(i)), self.v(i))
-    self.assertEquals(self.hr.clear(), None)
+    self.assertEquals(self.hr.clear(), SUCCESS)
     for i in range(10):
       self.assertEquals(self.hr.get(self.k(i)), None)
 
@@ -80,12 +80,12 @@ class FunctionalTest(unittest.TestCase):
       self.assertEquals(self.hr.get(self.k()), self.v())
       self.assertEquals(self.another_hr.get(self.k()), None)
       # Clear default and put on another cache
-      self.assertEquals(self.hr.clear(), None)
+      self.assertEquals(self.hr.clear(), SUCCESS)
       self.assertEquals(self.another_hr.put(self.k(), self.v()), SUCCESS)
       self.assertEquals(self.another_hr.get(self.k()), self.v())
       self.assertEquals(self.hr.get(self.k()), None)
       # Clear another cache
-      self.assertEquals(self.another_hr.clear(), None)
+      self.assertEquals(self.another_hr.clear(), SUCCESS)
       self.assertEquals(self.hr.get(self.k()), None)
       self.assertEquals(self.another_hr.get(self.k()), None)
     finally:
@@ -150,10 +150,19 @@ class FunctionalTest(unittest.TestCase):
     # Return previous on a previously non-existing key
     self.assertEquals(self.hr.replace(self.k(6), new, 0, 0, True), (NOT_EXECUTED, None))
 
-  # TODO test get with version, replace if unmodified, remove, remove if umodified,
+  def test_get_with_version(self):
+    self.assertEquals(self.hr.get_versioned(self.k()), (None, 0))
+    self.assertEquals(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
+    (value, version) = self.hr.get_versioned(self.k())
+    self.assertEquals(value, self.v())
+    self.assertTrue(version > 0)
+
+  # TODO test replace if unmodified, remove, remove if umodified,
   # TODO test contains key, stats, ping, bulk get
   # TODO Test get() calls that return longish values!
   # TODO Test with put that returns previous as well, so that previous is rather long as well
+
+#  asEq = assertEquals
 
   def _expect_error(self, hr_f, expr, cache_name="UndefinedCache"):
     self.another_hr = HotRodClient('127.0.0.1', 11222, cache_name)
