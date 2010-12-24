@@ -20,6 +20,7 @@ PUT_REQ = 0x01
 GET_REQ = 0x03
 PUT_IF_ABSENT_REQ = 0x05
 REPLACE_REQ = 0x07
+REPLACE_IF_UNMODIFIED_REQ = 0x09
 GET_WITH_VERSION_REQ = 0x11
 CLEAR_REQ = 0x13
 
@@ -64,6 +65,8 @@ VERSION_FMT = ">Q"
 VERSION_LEN = struct.calcsize(VERSION_FMT)
 
 # TODO Add methods to encode/decode varlong and check the spec to see where they need applying
+# TODO implement client intelligence = 2 (cluster formation interest)
+# TODO implement client intelligence = 3 (hash distribution interest)
 
 class HotRodClient(object):
   def __init__(self, host='127.0.0.1', port=11222, cache_name=''):
@@ -80,7 +83,9 @@ class HotRodClient(object):
     this cache entry: lifespan indicates the number of seconds the cache entry
     should live in memory, and max idle time indicates the number of seconds
     since last time the cache entry entry has been touched after which the
-    cache entry is considered up for expiration.
+    cache entry is considered up for expiration. If you pass 0 as parameter
+    for lifespan, it means that the entry has no lifespan and can live forever.
+    Same thing happens for max idle parameter.
 
     Unless returning previous value has been enabled, this operation returns
     the result of the operation as a byte. The possible values are specified
@@ -88,13 +93,17 @@ class HotRodClient(object):
     operation returns a tuple containing the result of the operation and the
     previous value if exists. If the key was not associated with any previous
     value, it will return None in the second parameter of the tuple. """
-    return self._do_op(PUT_REQ, key, val, lifespan, max_idle, ret_prev)
+    return self._do_op(PUT_REQ,
+                       key, val, lifespan, max_idle, ret_prev)
 
   def get(self, key):
+    """ Returns the value associated with the given key in the remote cache.
+    If the key is not present, this operation returns Null. """
     return self._do_op(GET_REQ, key, '', 0, 0, False)
 
   def put_if_absent(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
-    return self._do_op(PUT_IF_ABSENT_REQ, key, val, lifespan, max_idle, ret_prev)
+    return self._do_op(PUT_IF_ABSENT_REQ,
+                       key, val, lifespan, max_idle, ret_prev)
 
   def replace(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
     return self._do_op(REPLACE_REQ, key, val, lifespan, max_idle, ret_prev)
@@ -106,14 +115,30 @@ class HotRodClient(object):
     the key is not found, this method returns (None, 0). """
     return self._do_op(GET_WITH_VERSION_REQ, key, '', 0, 0, False)
 
+  def replace_with_version(self, key, val, version, lifespan=0, max_idle=0,
+                           ret_prev=False):
+    """ Replaces the value associated with a key with the value passed as
+    parameter if, and only if, the version of the cache entry matches the
+    version passed. This type of operation is generally used to guarantee that
+    when the cache entry is to be replaced, nobody has changed the contents
+    of the cache entry since last time it was read. Normally, the version that
+    is passed comes from the output of calling get_versioned() operation.
+
+    As with other similar operations, optional lifespan, max_idle parameters
+    can be provided to control the lifetime of the cache entry, and it can
+    return the previous value associated with the cache entry is ret_prev is
+    passed as True. """
+    return self._do_op(REPLACE_IF_UNMODIFIED_REQ,
+                       key, val, lifespan, max_idle, ret_prev, version)
+
   def clear(self):
     return self._do_op(CLEAR_REQ, '', '', 0, 0, False)
 
-  def _do_op(self, op, key, val, lifespan, max_idle, ret_prev):
-    self._send_op(op, key, val, lifespan, max_idle, ret_prev)
+  def _do_op(self, op, key, val, lifespan, max_idle, ret_prev, version=-1):
+    self._send_op(op, key, val, lifespan, max_idle, ret_prev, version)
     return self._get_resp(ret_prev)
 
-  def _send_op(self, op, key, val, lifespan, max_idle, ret_prev):
+  def _send_op(self, op, key, val, lifespan, max_idle, ret_prev, version):
     if ret_prev:
       flag = 0x01
     else:
@@ -132,6 +157,11 @@ class HotRodClient(object):
       self.s.send(msg)
     elif op in KEY_ONLY_REQ:
       self.s.send(msg + to_varint(len(key)) + key)
+    elif op == REPLACE_IF_UNMODIFIED_REQ:
+      self.s.send(msg + to_varint(len(key)) + key +
+                  to_varint(lifespan) + to_varint(max_idle) +
+                  struct.pack(VERSION_FMT, version) +
+                  to_varint(len(val)) + val)
     else:
       self.s.send(msg + to_varint(len(key)) + key +
                   to_varint(lifespan) + to_varint(max_idle) +
@@ -162,14 +192,14 @@ class HotRodClient(object):
       if status == SUCCESS:
         if (op == GET_WITH_VERSION_RES):
           version = struct.unpack(VERSION_FMT, self._read_bytes(VERSION_LEN))
-          return (self._read_ranged_bytes(), version)
+          return (self._read_ranged_bytes(), version[0])
         else:
           return self._read_ranged_bytes()
       else:
         self._raise_error(status)
 
   def _get_store_resp(self, status, ret_prev):
-    if (status == SUCCESS or status == NOT_EXECUTED) and ret_prev:
+    if status in OK_STATUS and ret_prev:
       return (status, self._read_ranged_bytes())
     elif status in OK_STATUS:
       return status
