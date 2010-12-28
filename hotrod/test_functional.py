@@ -152,7 +152,7 @@ class FunctionalTest(unittest.TestCase):
     self.eq(self.hr.replace(self.k(6), new, 0, 0, True), (NOT_EXECUTED, None))
 
   def test_get_with_version(self):
-    self.eq(self.hr.get_versioned(self.k()), (None, 0))
+    self.eq(self.hr.get_versioned(self.k()), (0, None))
     self.eq(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
     self.assert_get_versioned()
 
@@ -223,9 +223,9 @@ class FunctionalTest(unittest.TestCase):
 
   def assert_get_versioned(self, k_index=-1, v_index=-1):
     if k_index > 0:
-      (value, version) = self.hr.get_versioned(self.k(k_index))
+      (version, value) = self.hr.get_versioned(self.k(k_index))
     else:
-      (value, version) = self.hr.get_versioned(self.k())
+      (version, value) = self.hr.get_versioned(self.k())
 
     if v_index > 0:
       self.eq(value, self.v(v_index))

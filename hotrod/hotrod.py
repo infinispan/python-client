@@ -17,25 +17,79 @@ RES_MAGIC = 0xA1
 VERSION_10 = 10
 
 PUT_REQ = 0x01
+PUT_RES = 0x02
 GET_REQ = 0x03
+GET_RES = 0x04
 PUT_IF_ABSENT_REQ = 0x05
+PUT_IF_ABSENT_RES = 0x06
 REPLACE_REQ = 0x07
-REPLACE_IF_UNMODIFIED_REQ = 0x09
+REPLACE_RES = 0x08
+REPLACE_IF_REQ = 0x09
+REPLACE_IF_RES = 0x0A
 GET_WITH_VERSION_REQ = 0x11
-CLEAR_REQ = 0x13
-
 GET_WITH_VERSION_RES = 0x12
-
-KEY_ONLY_REQ = [GET_REQ, GET_WITH_VERSION_REQ]
-KEY_LESS_REQ = [CLEAR_REQ]
-TO_RES_OP = lambda op: op + 1
-KEY_ONLY_RES = map(TO_RES_OP, KEY_ONLY_REQ)
-KEY_LESS_RES = map(TO_RES_OP, KEY_LESS_REQ)
+CLEAR_REQ = 0x13
+CLEAR_RES = 0x14
+ERROR_RES = 0x50
 
 SUCCESS = 0x00
 NOT_EXECUTED = 0x01
 KEY_DOES_NOT_EXIST = 0x02
 OK_STATUS = [SUCCESS, NOT_EXECUTED, KEY_DOES_NOT_EXIST]
+
+KEY_LESS_SEND = lambda s, m, k, v, l, i, ver: \
+  s.send(m)
+KEY_ONLY_SEND = lambda s, m, k, v, l, i, ver: \
+  s.send(m + to_varint(len(k)) + k)
+KEY_VALUE_SEND = lambda s, m, k, v, l, i, ver: \
+  s.send(
+    m + to_varint(len(k)) + k +
+    to_varint(l) + to_varint(i) +
+    to_varint(len(v)) + v
+  )
+REPLACE_IF_REQ_SEND = lambda s, m, k, v, l, i, ver: \
+  s.send(
+    m + to_varint(len(k)) + k +
+    to_varint(l) + to_varint(i) +
+    struct.pack(VERSION_FMT, ver) +
+    to_varint(len(v)) + v
+  )
+
+SEND = {
+  CLEAR_REQ            : KEY_LESS_SEND,
+  GET_REQ              : KEY_ONLY_SEND,
+  GET_WITH_VERSION_REQ : KEY_ONLY_SEND,
+  PUT_REQ              : KEY_VALUE_SEND,
+  PUT_IF_ABSENT_REQ    : KEY_VALUE_SEND,
+  REPLACE_REQ          : KEY_VALUE_SEND,
+  REPLACE_IF_REQ       : REPLACE_IF_REQ_SEND
+}
+
+KEY_LESS_RECV = lambda hr, st, ret_prev: st
+
+KEY_ONLY_RECV = lambda hr, st, ret_prev: \
+  None if st == KEY_DOES_NOT_EXIST else hr._read_ranged_bytes()
+
+GET_WITH_VERSION_RECV = lambda hr, st, ret_prev: \
+  (0, None) if st == KEY_DOES_NOT_EXIST else \
+  (struct.unpack(VERSION_FMT, hr._read_bytes(VERSION_LEN))[0],
+   hr._read_ranged_bytes())
+
+KEY_VALUE_RECV = lambda hr, st, ret_prev: \
+  st if st in OK_STATUS and not ret_prev else (st, hr._read_ranged_bytes())
+
+ERROR_RECV = lambda hr, st, ret_prev: hr._raise_error(st)
+
+RECV = {
+  CLEAR_RES            : KEY_LESS_RECV,
+  GET_RES              : KEY_ONLY_RECV,
+  GET_WITH_VERSION_RES : GET_WITH_VERSION_RECV,
+  PUT_RES              : KEY_VALUE_RECV,
+  PUT_IF_ABSENT_RES    : KEY_VALUE_RECV,
+  REPLACE_RES          : KEY_VALUE_RECV,
+  REPLACE_IF_RES       : KEY_VALUE_RECV,
+  ERROR_RES            : ERROR_RECV
+}
 
 INVALID_MAGIC_MSG_ID = 0x81
 UNKNOWN_CMD = 0x82
@@ -109,10 +163,10 @@ class HotRodClient(object):
     return self._do_op(REPLACE_REQ, key, val, lifespan, max_idle, ret_prev)
 
   def get_versioned(self, key):
-    """ Returns the value associated with the given key and the version
-    associated with this key in the remote cache. The return is actually a
-    tuple where the value is the first element and version is the second. If
-    the key is not found, this method returns (None, 0). """
+    """ Returns the version associated with this key in the remote cache and
+    the value associated with the given key and . The return is actually a
+    tuple where the version is the first element and value is the second. If
+    the key is not found, this method returns (0, None). """
     return self._do_op(GET_WITH_VERSION_REQ, key, '', 0, 0, False)
 
   def replace_with_version(self, key, val, version, lifespan=0, max_idle=0,
@@ -128,7 +182,7 @@ class HotRodClient(object):
     can be provided to control the lifetime of the cache entry, and it can
     return the previous value associated with the cache entry is ret_prev is
     passed as True. """
-    return self._do_op(REPLACE_IF_UNMODIFIED_REQ,
+    return self._do_op(REPLACE_IF_REQ,
                        key, val, lifespan, max_idle, ret_prev, version)
 
   def clear(self):
@@ -153,58 +207,13 @@ class HotRodClient(object):
       end = struct.pack(REQ_END_FMT, flag, 0x01, 0, 0)
       msg = start + to_varint(len(self.cache_name)) + self.cache_name + end
 
-    if op in KEY_LESS_REQ:
-      self.s.send(msg)
-    elif op in KEY_ONLY_REQ:
-      self.s.send(msg + to_varint(len(key)) + key)
-    elif op == REPLACE_IF_UNMODIFIED_REQ:
-      self.s.send(msg + to_varint(len(key)) + key +
-                  to_varint(lifespan) + to_varint(max_idle) +
-                  struct.pack(VERSION_FMT, version) +
-                  to_varint(len(val)) + val)
-    else:
-      self.s.send(msg + to_varint(len(key)) + key +
-                  to_varint(lifespan) + to_varint(max_idle) +
-                  to_varint(len(val)) + val)
+    SEND[op](self.s, msg, key, val, lifespan, max_idle, version)
 
   def _get_resp(self, ret_prev):
     header = self._read_bytes(RES_H_LEN)
     magic, msg_id, op, st, topo_mark = struct.unpack(RES_H_FMT, header)
     assert (magic == RES_MAGIC), "Got magic: %d" % magic
-
-    if op in KEY_LESS_RES:
-      if st in OK_STATUS:
-        return st
-      else:
-        self._raise_error(st)
-    elif op in KEY_ONLY_RES:
-      return self._get_retrieval_resp(st, op)
-    else:
-      return self._get_store_resp(st, ret_prev)
-
-  def _get_retrieval_resp(self, status, op):
-    if status == KEY_DOES_NOT_EXIST:
-      if (op == GET_WITH_VERSION_RES):
-        return (None, 0)
-      else:
-        return None
-    else:
-      if status == SUCCESS:
-        if (op == GET_WITH_VERSION_RES):
-          version = struct.unpack(VERSION_FMT, self._read_bytes(VERSION_LEN))
-          return (self._read_ranged_bytes(), version[0])
-        else:
-          return self._read_ranged_bytes()
-      else:
-        self._raise_error(status)
-
-  def _get_store_resp(self, status, ret_prev):
-    if status in OK_STATUS and ret_prev:
-      return (status, self._read_ranged_bytes())
-    elif status in OK_STATUS:
-      return status
-    else:
-      self._raise_error(status)
+    return RECV[op](self, st, ret_prev)
 
   def _read_ranged_bytes(self):
     return self._read_bytes(from_varint(self.s))
