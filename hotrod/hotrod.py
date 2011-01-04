@@ -26,6 +26,8 @@ REPLACE_REQ = 0x07
 REPLACE_RES = 0x08
 REPLACE_IF_REQ = 0x09
 REPLACE_IF_RES = 0x0A
+REMOVE_REQ = 0x0B
+REMOVE_RES = 0x0C
 GET_WITH_VERSION_REQ = 0x11
 GET_WITH_VERSION_RES = 0x12
 CLEAR_REQ = 0x13
@@ -62,7 +64,8 @@ SEND = {
   PUT_REQ              : KEY_VALUE_SEND,
   PUT_IF_ABSENT_REQ    : KEY_VALUE_SEND,
   REPLACE_REQ          : KEY_VALUE_SEND,
-  REPLACE_IF_REQ       : REPLACE_IF_REQ_SEND
+  REPLACE_IF_REQ       : REPLACE_IF_REQ_SEND,
+  REMOVE_REQ           : KEY_ONLY_SEND
 }
 
 KEY_LESS_RECV = lambda hr, st, ret_prev: st
@@ -88,7 +91,8 @@ RECV = {
   PUT_IF_ABSENT_RES    : KEY_VALUE_RECV,
   REPLACE_RES          : KEY_VALUE_RECV,
   REPLACE_IF_RES       : KEY_VALUE_RECV,
-  ERROR_RES            : ERROR_RECV
+  ERROR_RES            : ERROR_RECV,
+  REMOVE_RES           : KEY_VALUE_RECV
 }
 
 INVALID_MAGIC_MSG_ID = 0x81
@@ -184,6 +188,16 @@ class HotRodClient(object):
     passed as True. """
     return self._do_op(REPLACE_IF_REQ,
                        key, val, lifespan, max_idle, ret_prev, version)
+
+  def remove(self, key, ret_prev=False):
+    """ Remove the key and the value associated to it from the remote cache.
+    Unless returning previous value has been enabled, this operation returns
+    the result of the operation as a byte. The possible values are specified
+    in the Hot Rod protocol. When return previous has been enabled, this
+    operation returns a tuple containing the result of the operation and the
+    previous value if exists. If the key was not associated with any previous
+    value, it will return None in the second parameter of the tuple. """
+    return self._do_op(REMOVE_REQ, key, '', 0, 0, ret_prev)
 
   def clear(self):
     return self._do_op(CLEAR_REQ, '', '', 0, 0, False)

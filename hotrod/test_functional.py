@@ -189,7 +189,15 @@ class FunctionalTest(unittest.TestCase):
     (s, p) = self.hr.replace_with_version(self.k(2), self.v(3), new_version, 0, 0, True)
     self.eq((s, p), (SUCCESS, self.v(2)))
 
-  # TODO test remove, remove if umodified,
+  def test_remove(self):
+    self.eq(self.hr.remove(self.k()), KEY_DOES_NOT_EXIST)
+    self.eq(self.hr.remove(self.k(), True), (KEY_DOES_NOT_EXIST, None))
+    self.eq(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
+    self.eq(self.hr.remove(self.k()), SUCCESS)
+    self.eq(self.hr.put_if_absent(self.k(2), self.v()), SUCCESS)
+    self.eq(self.hr.remove(self.k(2), True), (SUCCESS, self.v()))
+
+  # TODO test remove if umodified,
   # TODO test contains key, stats, ping, bulk get
   # TODO Test get() calls that return longish values!
   # TODO Test with put that returns previous as well, so that previous is rather long as well
