@@ -224,7 +224,12 @@ class FunctionalTest(unittest.TestCase):
     (s, p) = self.hr.remove_with_version(self.k(2), version, True)
     self.eq((s, p), (SUCCESS, self.v()))
 
-  # TODO test contains key, stats, ping, bulk get
+  def test_contains_key(self):
+    self.eq(self.hr.contains_key(self.k()), KEY_DOES_NOT_EXIST)
+    self.eq(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
+    self.eq(self.hr.contains_key(self.k()), SUCCESS)
+
+  # TODO test stats, ping, bulk get
   # TODO Test get() calls that return longish values!
   # TODO Test with put that returns previous as well, so that previous is rather long as well
   # TODO test reaction to passing None as parameters to put/get methods

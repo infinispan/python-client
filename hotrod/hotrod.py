@@ -30,6 +30,8 @@ REMOVE_REQ = 0x0B
 REMOVE_RES = 0x0C
 REMOVE_IF_REQ = 0x0D
 REMOVE_IF_RES = 0x0E
+CONTAINS_REQ = 0x0F
+CONTAINS_RES = 0x10
 GET_WITH_VERSION_REQ = 0x11
 GET_WITH_VERSION_RES = 0x12
 CLEAR_REQ = 0x13
@@ -74,7 +76,8 @@ SEND = {
   REPLACE_REQ          : KEY_VALUE_SEND,
   REPLACE_IF_REQ       : REPLACE_IF_REQ_SEND,
   REMOVE_REQ           : KEY_ONLY_SEND,
-  REMOVE_IF_REQ        : REMOVE_IF_REQ_SEND
+  REMOVE_IF_REQ        : REMOVE_IF_REQ_SEND,
+  CONTAINS_REQ         : KEY_ONLY_SEND
 }
 
 KEY_LESS_RECV = lambda hr, st, ret_prev: st
@@ -102,7 +105,8 @@ RECV = {
   REPLACE_IF_RES       : KEY_VALUE_RECV,
   ERROR_RES            : ERROR_RECV,
   REMOVE_RES           : KEY_VALUE_RECV,
-  REMOVE_IF_RES        : KEY_VALUE_RECV
+  REMOVE_IF_RES        : KEY_VALUE_RECV,
+  CONTAINS_RES         : KEY_LESS_RECV
 }
 
 INVALID_MAGIC_MSG_ID = 0x81
@@ -164,9 +168,16 @@ class HotRodClient(object):
     return self._do_op(PUT_REQ,
                        key, val, lifespan, max_idle, ret_prev)
 
+  # TODO: Shall we return just true/false? Ask list about 2/3 diff value returns
+  def contains_key(self, key):
+    """ Returns a byte indicating whether the key is present in the remote
+    cache. If it returns 0, it means that they was present and if returns 2,
+    it means that it does not exist in the remote cache. """
+    return self._do_op(CONTAINS_REQ, key, '', 0, 0, False)
+
   def get(self, key):
     """ Returns the value associated with the given key in the remote cache.
-    If the key is not present, this operation returns Null. """
+    If the key is not present, this operation returns None. """
     return self._do_op(GET_REQ, key, '', 0, 0, False)
 
   def put_if_absent(self, key, val, lifespan=0, max_idle=0, ret_prev=False):
