@@ -28,6 +28,8 @@ REPLACE_IF_REQ = 0x09
 REPLACE_IF_RES = 0x0A
 REMOVE_REQ = 0x0B
 REMOVE_RES = 0x0C
+REMOVE_IF_REQ = 0x0D
+REMOVE_IF_RES = 0x0E
 GET_WITH_VERSION_REQ = 0x11
 GET_WITH_VERSION_RES = 0x12
 CLEAR_REQ = 0x13
@@ -57,6 +59,12 @@ REPLACE_IF_REQ_SEND = lambda s, m, k, v, l, i, ver: \
     to_varint(len(v)) + v
   )
 
+REMOVE_IF_REQ_SEND = lambda s, m, k, v, l, i, ver: \
+  s.send(
+    m + to_varint(len(k)) + k +
+    struct.pack(VERSION_FMT, ver)
+  )
+
 SEND = {
   CLEAR_REQ            : KEY_LESS_SEND,
   GET_REQ              : KEY_ONLY_SEND,
@@ -65,7 +73,8 @@ SEND = {
   PUT_IF_ABSENT_REQ    : KEY_VALUE_SEND,
   REPLACE_REQ          : KEY_VALUE_SEND,
   REPLACE_IF_REQ       : REPLACE_IF_REQ_SEND,
-  REMOVE_REQ           : KEY_ONLY_SEND
+  REMOVE_REQ           : KEY_ONLY_SEND,
+  REMOVE_IF_REQ        : REMOVE_IF_REQ_SEND
 }
 
 KEY_LESS_RECV = lambda hr, st, ret_prev: st
@@ -92,7 +101,8 @@ RECV = {
   REPLACE_RES          : KEY_VALUE_RECV,
   REPLACE_IF_RES       : KEY_VALUE_RECV,
   ERROR_RES            : ERROR_RECV,
-  REMOVE_RES           : KEY_VALUE_RECV
+  REMOVE_RES           : KEY_VALUE_RECV,
+  REMOVE_IF_RES        : KEY_VALUE_RECV
 }
 
 INVALID_MAGIC_MSG_ID = 0x81
@@ -198,6 +208,18 @@ class HotRodClient(object):
     previous value if exists. If the key was not associated with any previous
     value, it will return None in the second parameter of the tuple. """
     return self._do_op(REMOVE_REQ, key, '', 0, 0, ret_prev)
+
+  def remove_with_version(self, key, version, ret_prev=False):
+    """ Removes the key and its associated value for the key passed as
+    parameter if, and only if, the version of the cache entry matches the
+    version passed. This type of operation is generally used to guarantee that
+    when the cache entry is to be removed, nobody has changed the contents
+    of the cache entry since last time it was read. Normally, the version that
+    is passed comes from the output of calling get_versioned() operation.
+
+    This function can return the previous value associated with the cache
+    entry is ret_prev is passed as True."""
+    return self._do_op(REMOVE_IF_REQ, key, '', 0, 0, ret_prev, version)
 
   def clear(self):
     return self._do_op(CLEAR_REQ, '', '', 0, 0, False)

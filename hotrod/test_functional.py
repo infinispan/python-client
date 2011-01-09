@@ -197,7 +197,33 @@ class FunctionalTest(unittest.TestCase):
     self.eq(self.hr.put_if_absent(self.k(2), self.v()), SUCCESS)
     self.eq(self.hr.remove(self.k(2), True), (SUCCESS, self.v()))
 
-  # TODO test remove if umodified,
+  def test_remove_if_unmodified(self):
+    # First, test the case where the key does not exist
+    status = self.hr.remove_with_version(self.k(), 0)
+    self.eq(status, KEY_DOES_NOT_EXIST)
+    # Standard remove if unmodified call
+    self.eq(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
+    version = self.assert_get_versioned()
+    status = self.hr.remove_with_version(self.k(), version)
+    self.eq(status, SUCCESS)
+    self.eq(self.hr.get(self.k()), None)
+    # Test situation where another operation modified it concurrently
+    self.eq(self.hr.put_if_absent(self.k(1), self.v()), SUCCESS)
+    version = self.assert_get_versioned(1)
+    status = self.hr.remove_with_version(self.k(1), 9999)
+    self.eq(status, NOT_EXECUTED)
+    status = self.hr.remove_with_version(self.k(1), version)
+    self.eq(status, SUCCESS)
+    # Finally, test that it can return previous value
+    (s, p) = self.hr.remove_with_version(self.k(2), 0, True)
+    self.eq((s, p), (KEY_DOES_NOT_EXIST, None))
+    self.eq(self.hr.put_if_absent(self.k(2), self.v()), SUCCESS)
+    version = self.assert_get_versioned(2)
+    (s, p) = self.hr.remove_with_version(self.k(2), 7890, True)
+    self.eq((s, p), (NOT_EXECUTED, self.v()))
+    (s, p) = self.hr.remove_with_version(self.k(2), version, True)
+    self.eq((s, p), (SUCCESS, self.v()))
+
   # TODO test contains key, stats, ping, bulk get
   # TODO Test get() calls that return longish values!
   # TODO Test with put that returns previous as well, so that previous is rather long as well
