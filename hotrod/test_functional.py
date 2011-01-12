@@ -20,7 +20,7 @@ class FunctionalTest(unittest.TestCase):
     self.hr = HotRodClient()
 
   def tearDown(self):
-    self.hr.clear()
+#    self.hr.clear()
     self.hr.stop()
 
   def test_put(self):
@@ -229,9 +229,20 @@ class FunctionalTest(unittest.TestCase):
     self.eq(self.hr.put_if_absent(self.k(), self.v()), SUCCESS)
     self.eq(self.hr.contains_key(self.k()), SUCCESS)
 
-  # TODO test stats, ping, bulk get
-  # TODO Test get() calls that return longish values!
-  # TODO Test with put that returns previous as well, so that previous is rather long as well
+  def test_stats(self):
+    stats = self.hr.stats()
+    self.eq(len(stats), 9)
+    self.eq(stats['timeSinceStart'], '-1')
+    self.eq(stats['currentNumberOfEntries'], '-1')
+    self.eq(stats['totalNumberOfEntries'], '-1')
+    self.eq(stats['stores'], '-1')
+    self.eq(stats['retrievals'], '-1')
+    self.eq(stats['hits'], '-1')
+    self.eq(stats['misses'], '-1')
+    self.eq(stats['removeHits'], '-1')
+    self.eq(stats['removeMisses'], '-1')
+
+  # TODO test ping, bulk get
   # TODO test reaction to passing None as parameters to put/get methods
 
   def _expect_error(self, hr_f, expr, cache_name="UndefinedCache"):

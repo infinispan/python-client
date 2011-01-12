@@ -36,6 +36,8 @@ GET_WITH_VERSION_REQ = 0x11
 GET_WITH_VERSION_RES = 0x12
 CLEAR_REQ = 0x13
 CLEAR_RES = 0x14
+STATS_REQ = 0x15
+STATS_RES = 0x16
 ERROR_RES = 0x50
 
 SUCCESS = 0x00
@@ -77,7 +79,8 @@ SEND = {
   REPLACE_IF_REQ       : REPLACE_IF_REQ_SEND,
   REMOVE_REQ           : KEY_ONLY_SEND,
   REMOVE_IF_REQ        : REMOVE_IF_REQ_SEND,
-  CONTAINS_REQ         : KEY_ONLY_SEND
+  CONTAINS_REQ         : KEY_ONLY_SEND,
+  STATS_REQ            : KEY_LESS_SEND
 }
 
 KEY_LESS_RECV = lambda hr, st, ret_prev: st
@@ -93,6 +96,8 @@ GET_WITH_VERSION_RECV = lambda hr, st, ret_prev: \
 KEY_VALUE_RECV = lambda hr, st, ret_prev: \
   st if st in OK_STATUS and not ret_prev else (st, hr._read_ranged_bytes())
 
+STATS_RECV = lambda hr, st, ret_prev: hr._read_map()
+
 ERROR_RECV = lambda hr, st, ret_prev: hr._raise_error(st)
 
 RECV = {
@@ -106,7 +111,8 @@ RECV = {
   ERROR_RES            : ERROR_RECV,
   REMOVE_RES           : KEY_VALUE_RECV,
   REMOVE_IF_RES        : KEY_VALUE_RECV,
-  CONTAINS_RES         : KEY_LESS_RECV
+  CONTAINS_RES         : KEY_LESS_RECV,
+  STATS_RES            : STATS_RECV
 }
 
 INVALID_MAGIC_MSG_ID = 0x81
@@ -233,7 +239,15 @@ class HotRodClient(object):
     return self._do_op(REMOVE_IF_REQ, key, '', 0, 0, ret_prev, version)
 
   def clear(self):
+    """ Clears the contents of the remote cache. """
     return self._do_op(CLEAR_REQ, '', '', 0, 0, False)
+
+  def stats(self):
+    """ Returns a dictionary containing statistics about the remote cache.
+    The key of each cache entry represents the statistic name and the value
+    represents the value of that stastic at the time the stats command was
+    sent. Both keys and values are always represented as Strings. """
+    return self._do_op(STATS_REQ, '', '', 0, 0, False)
 
   def _do_op(self, op, key, val, lifespan, max_idle, ret_prev, version=-1):
     self._send_op(op, key, val, lifespan, max_idle, ret_prev, version)
@@ -278,6 +292,13 @@ class HotRodClient(object):
       return None
     else:
       return bytes
+
+  def _read_map(self):
+    map = {}
+    for i in range(0, from_varint(self.s)):
+      key = self._read_ranged_bytes()
+      map[key] = self._read_ranged_bytes()
+    return map
 
   def _raise_error(self, status):
     error = self._read_ranged_bytes()
