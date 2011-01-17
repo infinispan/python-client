@@ -15,12 +15,14 @@ from hotrod import HotRodClient
 from hotrod import HotRodError
 from hotrod import SUCCESS, NOT_EXECUTED, KEY_DOES_NOT_EXIST
 
+# TODO test reaction to passing None as parameters to put/get methods
+
 class FunctionalTest(unittest.TestCase):
   def setUp(self):
     self.hr = HotRodClient()
 
   def tearDown(self):
-#    self.hr.clear()
+    self.hr.clear()
     self.hr.stop()
 
   def test_put(self):
@@ -245,8 +247,20 @@ class FunctionalTest(unittest.TestCase):
   def test_ping(self):
     self.eq(self.hr.ping(), 0)
 
-  # TODO test ping, bulk get
-  # TODO test reaction to passing None as parameters to put/get methods
+  def test_bulk_get(self):
+    for i in range(10):
+      self.eq(self.hr.put(self.k(i), self.v(i)), SUCCESS)
+      self.eq(self.hr.get(self.k(i)), self.v(i))
+    bulk_data = self.hr.bulk_get()
+    self.eq(len(bulk_data), 10)
+    for i in range(10):
+      self.eq(bulk_data[self.k(i)], self.v(i))
+
+    bulk_data = self.hr.bulk_get(5)
+    self.eq(len(bulk_data), 5)
+    for i in range(5):
+      if self.k(i) in bulk_data:
+        self.eq(bulk_data[self.k(i)], self.v(i))
 
   def _expect_error(self, hr_f, expr, cache_name="UndefinedCache"):
     self.another_hr = HotRodClient('127.0.0.1', 11222, cache_name)
