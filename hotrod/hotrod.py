@@ -38,6 +38,8 @@ CLEAR_REQ = 0x13
 CLEAR_RES = 0x14
 STATS_REQ = 0x15
 STATS_RES = 0x16
+PING_REQ = 0x17
+PING_RES = 0x18
 ERROR_RES = 0x50
 
 SUCCESS = 0x00
@@ -80,7 +82,8 @@ SEND = {
   REMOVE_REQ           : KEY_ONLY_SEND,
   REMOVE_IF_REQ        : REMOVE_IF_REQ_SEND,
   CONTAINS_REQ         : KEY_ONLY_SEND,
-  STATS_REQ            : KEY_LESS_SEND
+  STATS_REQ            : KEY_LESS_SEND,
+  PING_REQ             : KEY_LESS_SEND,
 }
 
 KEY_LESS_RECV = lambda hr, st, ret_prev: st
@@ -112,7 +115,8 @@ RECV = {
   REMOVE_RES           : KEY_VALUE_RECV,
   REMOVE_IF_RES        : KEY_VALUE_RECV,
   CONTAINS_RES         : KEY_LESS_RECV,
-  STATS_RES            : STATS_RECV
+  STATS_RES            : STATS_RECV,
+  PING_RES             : KEY_LESS_RECV,
 }
 
 INVALID_MAGIC_MSG_ID = 0x81
@@ -248,6 +252,11 @@ class HotRodClient(object):
     represents the value of that stastic at the time the stats command was
     sent. Both keys and values are always represented as Strings. """
     return self._do_op(STATS_REQ, '', '', 0, 0, False)
+
+  def ping(self):
+    """ Pings the backend remote cache. If the present is present and it's
+    responding correctly, it returns 0. Otherwise it returns an error code."""
+    return self._do_op(PING_REQ, '', '', 0, 0, False)
 
   def _do_op(self, op, key, val, lifespan, max_idle, ret_prev, version=-1):
     self._send_op(op, key, val, lifespan, max_idle, ret_prev, version)

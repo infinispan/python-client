@@ -242,6 +242,9 @@ class FunctionalTest(unittest.TestCase):
     self.eq(stats['removeHits'], '-1')
     self.eq(stats['removeMisses'], '-1')
 
+  def test_ping(self):
+    self.eq(self.hr.ping(), 0)
+
   # TODO test ping, bulk get
   # TODO test reaction to passing None as parameters to put/get methods
 
