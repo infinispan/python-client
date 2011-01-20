@@ -47,6 +47,9 @@ HEADER_RES_LEN = struct.calcsize(HEADER_RES_FMT)
 VERSION_FMT = ">Q"
 VERSION_LEN = struct.calcsize(VERSION_FMT)
 
+MAX_VLONG = 0x7FFFFFFFFFFFFFFF
+MAX_VINT = 0xFFFFFFFF
+
 
 KEY_LESS_SEND = lambda s, m, k, v, l, i, ver, c: \
   s.send(m)

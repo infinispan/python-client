@@ -12,7 +12,7 @@ import unittest
 import time
 
 from remotecache import RemoteCache
-from remotecache import RemoteCacheError
+from remotecache import ServerError
 from infinispan import SERVER_ERROR
 
 # TODO test reaction to passing None as parameters to put/get methods
@@ -258,7 +258,7 @@ class FunctionalTest(unittest.TestCase):
     try:
       hr_f(self.another_hr)
       raise "Operating on an undefined cache should have returned error"
-    except RemoteCacheError, e:
+    except ServerError, e:
       self.eq(e.status, SERVER_ERROR)
       self.assertTrue(expr(e.msg))
     finally:

@@ -12,15 +12,13 @@ import socket
 import struct
 import exceptions
 
-from infinispan import MAGIC, VERSION, \
+from infinispan import MAGIC, VERSION, MAX_VLONG, MAX_VINT, \
   HEADER_RES_LEN, HEADER_RES_FMT, SEND, RECV, \
   PUT, GET, PUT_IF_ABSENT, REPLACE, REPLACE_IF, REMOVE, REMOVE_IF, \
   CONTAINS, GET_WITH_VERSION, CLEAR, STATS, PING, BULK_GET
 
-from unsigned import to_varint
-from unsigned import from_varint
+from unsigned import to_varint, from_varint
 
-# TODO Control length of key/value/cache_name...etc
 # TODO implement client intelligence = 2 (cluster formation interest)
 # TODO implement client intelligence = 3 (hash distribution interest)
 
@@ -38,6 +36,8 @@ class RemoteCache(object):
     self.cache_name = cache_name
     # Use a simple, non-thread-safe counter to maintain message numbers.
     self.counter = 0
+    # Cache name length must not exceed positive integer size
+    self._assert_vint_len(len(cache_name), "Cache name", cache_name)
 
   def stop(self):
     self.s.close()
@@ -223,6 +223,11 @@ class RemoteCache(object):
     return self._do_op(BULK_GET[0], '', '', 0, 0, False, -1, count)
 
   def _do_op(self, op, key, val, lifespan, max_idle, ret_prev, version=-1, count=0):
+    # Key and value must not exceed positive integer size
+    self._assert_vint_len(len(key), "Key", key)
+    self._assert_vint_len(len(val), "Value", val)
+    self._assert_vint_len(lifespan, "Lifespan", lifespan)
+    self._assert_vint_len(max_idle, "Max idle", max_idle)
     self._send_op(op, key, val, lifespan, max_idle, ret_prev, version, count)
     return self._get_resp(ret_prev)
 
@@ -232,7 +237,7 @@ class RemoteCache(object):
     start = struct.pack(">B", MAGIC[0]) + to_varint(self.counter) \
             + struct.pack(">2B", VERSION, op)
     # Increase counter for next message
-    self.counter += 1
+    self._increase_counter()
     # End of request header: flag, client_int, topo_id, tx_type_id
     end = struct.pack(">4B", flag, 0x01, 0, 0)
     if self.cache_name == '':
@@ -243,6 +248,17 @@ class RemoteCache(object):
       encoded_cache_name = to_varint(len(self.cache_name)) + self.cache_name
     msg = start + encoded_cache_name + end
     SEND[op](self.s, msg, key, val, lifespan, max_idle, version, count)
+
+  def _increase_counter(self):
+    # Maximum value for message id is 2^63-1, so if reached get back to 0
+    if self.counter == MAX_VLONG:
+      self.counter = 0
+    else:
+      self.counter += 1
+
+  def _assert_vint_len(self, value, var_name, var):
+    if value > MAX_VINT:
+      raise EncodeError("%s %s exceeds size limit" % var_name, var)
 
   def _get_resp(self, ret_prev):
     header = self._read_bytes(HEADER_RES_LEN)
@@ -285,16 +301,19 @@ class RemoteCache(object):
 
   def _raise_error(self, status):
     error = self._read_ranged_bytes()
-    raise RemoteCacheError(status, error)
+    raise ServerError(status, error)
 
-class RemoteCacheError(Exception):
+class RemoteCacheError(Exception): pass
+
+class EncodeError(RemoteCacheError): pass
+
+class ServerError(RemoteCacheError):
   """Error raised when a command fails."""
 
   def __init__(self, status, msg):
     super_msg = 'Hot Rod protocol error #' + `status`
     if msg: super_msg += ":  " + msg
     exceptions.Exception.__init__(self, super_msg)
-
     self.status = status
     self.msg = msg
 

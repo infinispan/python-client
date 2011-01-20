@@ -3,7 +3,6 @@
 """
 Encoder/decoder functions for unsigned variable length numbers.
 """
-
 __author__ = "Galder Zamarreño"
 __copyright__ = "(C) 2010-2011 Red Hat Inc."
 
