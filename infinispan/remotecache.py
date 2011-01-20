@@ -12,11 +12,10 @@ import socket
 import struct
 import exceptions
 
-from infinispan import MAGIC, VERSION_10, \
-  REQ_FMT, RES_H_LEN, RES_H_FMT, REQ_START_FMT, REQ_END_FMT, \
+from infinispan import MAGIC, VERSION, \
+  HEADER_RES_LEN, HEADER_RES_FMT, SEND, RECV, \
   PUT, GET, PUT_IF_ABSENT, REPLACE, REPLACE_IF, REMOVE, REMOVE_IF, \
-  CONTAINS, GET_WITH_VERSION, CLEAR, STATS, PING, BULK_GET, \
-  SEND, RECV
+  CONTAINS, GET_WITH_VERSION, CLEAR, STATS, PING, BULK_GET
 
 from unsigned import to_varint
 from unsigned import from_varint
@@ -26,10 +25,19 @@ from unsigned import from_varint
 # TODO implement client intelligence = 3 (hash distribution interest)
 
 class RemoteCache(object):
+  """ Infinispan remote cache client offering different possibilities to
+  interact with the remote cache such as: storing cache entries, retrieving
+  values associated with keys, removing cache entries...etc.
+
+  This class is not thread safe, so if different threads want to access the
+  same cache, they should use different RemoteCache instances."""
+
   def __init__(self, host='127.0.0.1', port=11222, cache_name=''):
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.s.connect_ex((host, port))
     self.cache_name = cache_name
+    # Use a simple, non-thread-safe counter to maintain message numbers.
+    self.counter = 0
 
   def stop(self):
     self.s.close()
@@ -219,25 +227,26 @@ class RemoteCache(object):
     return self._get_resp(ret_prev)
 
   def _send_op(self, op, key, val, lifespan, max_idle, ret_prev, version, count):
-    if ret_prev:
-      flag = 0x01
-    else:
-      flag = 0
-
-      # TODO: Make message id counter variable and atomic(?)
+    flag = 0x01 if ret_prev else 0
+    # Start of request header: magic, message_id, version, op_code
+    start = struct.pack(">B", MAGIC[0]) + to_varint(self.counter) \
+            + struct.pack(">2B", VERSION, op)
+    # Increase counter for next message
+    self.counter += 1
+    # End of request header: flag, client_int, topo_id, tx_type_id
+    end = struct.pack(">4B", flag, 0x01, 0, 0)
     if self.cache_name == '':
-      msg = struct.pack(REQ_FMT, MAGIC[0], 0x01, VERSION_10, op,
-                        0, flag, 0x01, 0, 0)
+      # 0 (no cache name)
+      encoded_cache_name = struct.pack(">B", 0)
     else:
-      start = struct.pack(REQ_START_FMT, MAGIC[0], 0x01, VERSION_10, op)
-      end = struct.pack(REQ_END_FMT, flag, 0x01, 0, 0)
-      msg = start + to_varint(len(self.cache_name)) + self.cache_name + end
-
+      # cache_name_len, cache_name,
+      encoded_cache_name = to_varint(len(self.cache_name)) + self.cache_name
+    msg = start + encoded_cache_name + end
     SEND[op](self.s, msg, key, val, lifespan, max_idle, version, count)
 
   def _get_resp(self, ret_prev):
-    header = self._read_bytes(RES_H_LEN)
-    magic, msg_id, op, st, topo_mark = struct.unpack(RES_H_FMT, header)
+    header = self._read_bytes(HEADER_RES_LEN)
+    magic, msg_id, op, st, topo_mark = struct.unpack(HEADER_RES_FMT, header)
     assert (magic == MAGIC[1]), "Got magic: %d" % magic
     return RECV[op](self, st, ret_prev)
 

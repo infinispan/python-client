@@ -11,7 +11,7 @@ import struct
 from unsigned import to_varint
 
 MAGIC = 0xA0, 0xA1
-VERSION_10 = 10
+VERSION = 10
 
 PUT = 0x01, 0x02
 GET = 0x03, 0x04
@@ -40,22 +40,9 @@ PARSE_ERROR = 0x84
 SERVER_ERROR = 0x85
 CMD_TIMED_OUT = 0x86
 
-# Without cache name
-# magic, msg_id, version, op_code,
-# cache name length (0),
-# flag, clientint, topoid, txtypeid
-REQ_FMT = ">BBBBBBBBB"
-
-# With cache name, separate the start and end of header
-# start: magic, msg_id, version, op_code,
-REQ_START_FMT = ">BBBB"
-# end: flag, clientint, topoid, txtypeid
-REQ_END_FMT = ">BBBB"
-# And in between them: cache_name_length + cache name
-
 # magic, msg_id, op_code, status, topology_mark
-RES_H_FMT = ">BBBBB"
-RES_H_LEN = struct.calcsize(RES_H_FMT)
+HEADER_RES_FMT = ">BBBBB"
+HEADER_RES_LEN = struct.calcsize(HEADER_RES_FMT)
 
 VERSION_FMT = ">Q"
 VERSION_LEN = struct.calcsize(VERSION_FMT)
