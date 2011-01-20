@@ -15,7 +15,8 @@ from remotecache import RemoteCache
 from remotecache import ServerError
 from infinispan import SERVER_ERROR
 
-# TODO test reaction to passing None as parameters to put/get methods
+# TODO Test reaction to passing None as parameters to put/get methods
+# TODO Make test run a shell script that starts a HotRodServer
 
 class FunctionalTest(unittest.TestCase):
   def setUp(self):
