@@ -3,22 +3,42 @@
 
 """
 Functional Infinispan's remote cache client test.
+
+This test suite requires unittest2 module to be installed.
+
+Due to a problem with IntelliJ and unittest2, this test can't currently be run
+from the IDE: http://youtrack.jetbrains.net/issue/PY-2809
+
+So, to run the test, go to the root of the project and execute:
+
+$ ./run_test_functional
 """
 
 __author__ = "Galder Zamarreño"
 __copyright__ = "(C) 2010-2011 Red Hat Inc."
 
-import unittest
+import unittest2
 import time
 
 from remotecache import RemoteCache
 from remotecache import ServerError
 from infinispan import SERVER_ERROR
+from test_hotrod import HotRodServer
 
 # TODO Test reaction to passing None as parameters to put/get methods
-# TODO Make test run a shell script that starts a HotRodServer
 
-class FunctionalTest(unittest.TestCase):
+class FunctionalTest(unittest2.TestCase):
+
+  @classmethod
+  def setUpClass(cls):
+    cls._hrs = HotRodServer()
+    cls._hrs.start_local()
+    time.sleep(5)
+
+  @classmethod
+  def tearDownClass(cls):
+    cls._hrs.stop()
+
   def setUp(self):
     self.rc = RemoteCache()
 
@@ -307,4 +327,4 @@ class FunctionalTest(unittest.TestCase):
     return prefix + self._testMethodName
 
 if __name__ == '__main__':
-  unittest.main()
+  unittest2.main()
