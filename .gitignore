@@ -5,3 +5,5 @@
 target
 *.pyc
 *.log
+build
+files.txt
