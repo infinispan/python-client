@@ -73,10 +73,10 @@ def release():
 
   # TODO Update setup.by programmatically and commit
   
-  print "Step 2: Push tags" % (branch, version)
+  print 'Step 2: Push tags'
   push_to_origin()
 
-  print "Step 3: Upload distribution to PyPI"
+  print 'Step 3: Upload distribution to PyPI'
   upload_to_pypi()
 
 if __name__ == "__main__":
