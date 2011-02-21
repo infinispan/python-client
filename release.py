@@ -20,7 +20,7 @@ def help_and_exit():
   sys.exit(0)
 
 def input_with_default(msg, default):
-  i = raw_input("%s[%s]: " % msg, default)
+  i = raw_input("%s[%s]: " % (msg, default))
   if i.strip() == "":
     i = default
   return i
