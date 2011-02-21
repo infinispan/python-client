@@ -7,3 +7,5 @@ target
 *.log
 build
 files.txt
+dist
+infinispan.egg-info

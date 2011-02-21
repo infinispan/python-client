@@ -14,10 +14,23 @@ server] [2].
 This client requires Python 2.6 or higher.
 
 ## Installation
+### Via distutils
 Installing the python client is a very simple process. Once you've downloaded
 the source bundle for the client, execute the following:
 
     python setup.py install --record files.txt
+
+### Via python eggs
+To install the Infinispan python client via a python egg, you can access the
+PyPI URL directly via:
+
+    easy_install ...
+
+Or you can build the egg from the root of the source and install it
+immediately:
+
+    python setup.py bdist_egg
+    easy_install dist/infinispan-*.egg
 
 ## Testing the client
 Once you've installed the client, testing it is very easy. First of all
@@ -42,11 +55,16 @@ When you this script, the output should say:
 > My name is Galder
 
 ## Uninstallation
+### If installed via distutils
 If you executed the suggested installation a command, a file called 'files.txt'
 would have been generated. This file can later be used to uninstall the client
 using the following command:
 
     cat files.txt | xargs rm -rf
+### If installed via python eggs
+Simply execute:
+
+    easy_install -m infinispan
 
 ## Versions
 * 1.0.0b1 - This version provides a client intelligence level 1 implementation

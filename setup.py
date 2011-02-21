@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from distutils.core import setup
+from setuptools import setup
 
 version = "1.0.0b1"
 
@@ -11,5 +11,18 @@ setup(name = 'infinispan',
       author = 'Galder Zamarreño',
       author_email = 'galder@jboss.org',
       url = 'http://infinispan.org',
-      py_modules = ['infinispan.remotecache', 'infinispan.unsigned']
+      py_modules = ['infinispan.remotecache', 'infinispan.unsigned'],
+      classifiers=[
+          "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+          "Programming Language :: Python",
+          "Development Status :: 4 - Beta",
+          "Intended Audience :: Developers",
+          "Topic :: Software Development :: Libraries :: Python Module",
+      ],
+      keywords='infinispan hotrod nosql datagrid',
+      license='LGPL',
+      install_requires=[
+        'setuptools',
+        'greenlet',
+      ],
       )
