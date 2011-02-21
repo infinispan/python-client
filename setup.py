@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from setuptools import setup
 
@@ -8,7 +7,7 @@ version = "1.0.0b1"
 setup(name = 'infinispan',
       version = version,
       description = 'Native python client for Infinispan, over the Hot Rod wire protocol',
-      author = 'Galder Zamarreño',
+      author = 'Galder Zamarreno',
       author_email = 'galder@jboss.org',
       url = 'http://infinispan.org',
       py_modules = ['infinispan.remotecache', 'infinispan.unsigned'],
@@ -17,7 +16,7 @@ setup(name = 'infinispan',
           "Programming Language :: Python",
           "Development Status :: 4 - Beta",
           "Intended Audience :: Developers",
-          "Topic :: Software Development :: Libraries :: Python Module",
+          "Topic :: Software Development :: Libraries :: Python Modules",
       ],
       keywords = 'infinispan hotrod nosql datagrid',
       license = 'LGPL',
