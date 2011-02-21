@@ -21,10 +21,11 @@ the source bundle for the client, execute the following:
     python setup.py install --record files.txt
 
 ### Via python eggs
-To install the Infinispan python client via a python egg, you can access the
-PyPI URL directly via:
+To install the Infinispan python client via a python egg, simply type (please
+note than in some systems, i.e. MacOS, you'll have to execute this as super
+user (sudo)):
 
-    easy_install ...
+    pip install infinispan
 
 Or you can build the egg from the root of the source and install it
 immediately:
@@ -62,7 +63,11 @@ using the following command:
 
     cat files.txt | xargs rm -rf
 ### If installed via python eggs
-Simply execute:
+Depending on which of the methods you used for installation, execute:
+
+    pip uninstall infinispan
+
+Or:
 
     easy_install -m infinispan
 
