@@ -49,9 +49,9 @@ using the following command:
     cat files.txt | xargs rm -rf
 
 ## Versions
-* 1.0.0.BETA1 - This version provides a client intelligence level 1
-implementation for the [Infinispan Hot Rod protocol] [1]. Please read the
-specification in order to find out more.
+* 1.0.0b1 - This version provides a client intelligence level 1 implementation
+for the [Infinispan Hot Rod protocol] [1]. Please read the specification in
+order to find out more.
 
 [1]: http://community.jboss.org/docs/DOC-14421
 [2]: http://community.jboss.org/docs/DOC-15093
