@@ -1,0 +1,110 @@
+= Python Hot Rod Client
+The Infinispan Community
+:toc2:
+:icons: font
+:toclevels: 3
+:numbered:
+
+== Introduction
+This is a native Python client implementation of link:http://infinispan.org/docs/6.0.x/user_guide/user_guide.html#_hot_rod_protocol[Infinispan's Hot Rod
+client/server protocol], which allows Python applications to connect and
+query or store data in Infinispan remote caches based on Hot Rod.
+
+In order to connect to Hot Rod based Infinispan remote caches, it's necessary
+that a server is up and running. To find out more on how to start an Infinispan
+remote cache server, follow the instructions on link:http://infinispan.org/docs/6.0.x/user_guide/user_guide.html#_using_hot_rod_server[using the Infinispan Hot Rod
+server].
+
+== Installation
+=== Pre-requisites
+This client requires Python 2.6 or higher.
+
+=== Download
+==== Via distutils
+Installing the python client is a very simple process.
+Once you've downloaded the source bundle for the client, execute the following:
+
+ python setup.py install --record files.txt
+
+==== Via python eggs
+To install the Infinispan python client via a python egg, simply type (please
+note than in some systems, i.e. MacOS, you'll have to execute this as super
+user (sudo)):
+
+ pip install infinispan
+
+==== Building from source
+Or you can build the egg from the root of the source and install it
+immediately:
+
+ python setup.py bdist_egg
+ easy_install dist/infinispan-*.egg
+
+=== Testing the client
+Once you've installed the client, testing it is very easy.
+First of all download one of the Infinispan *-bin.zip distributions
+and start a Hot Rod server using default values.
+Then, execute a simple script such as this:
+
+[source,python]
+----
+    import sys
+    from infinispan.remotecache import RemoteCache
+
+    def main():
+      remote_cache = RemoteCache()
+      remote_cache.put("Name", "Galder")
+      name = remote_cache.get("Name")
+      print "My name is %s" % name
+      return
+
+    if __name__ == "__main__":
+      sys.exit(main())
+----
+
+When you run this script, the output should say:
+
+ > My name is Galder
+
+== Uninstallation
+=== If installed via distutils
+If you executed the suggested installation a command, a file called `files.txt`
+would have been generated.
+This file can later be used to uninstall the client using the following command:
+
+ cat files.txt | xargs rm -rf
+
+=== If installed via python eggs
+Depending on which of the methods you used for installation, execute:
+
+ pip uninstall infinispan
+
+Or:
+
+ easy_install -m infinispan
+
+
+== Versions
+*1.0.0b1* - This version provides a client intelligence level 1 implementation
+for the link:http://infinispan.org/docs/6.0.x/user_guide/user_guide.html#_hot_rod_protocol[Infinispan Hot Rod protocol].
+Please read the specification in order to find out more.
+
+
+== Usage
+=== Configuration
+_TODO_
+
+=== API
+_TODO_
+
+== Contributing back
+Contributions, as always, are welcome be it in the form of code, tests
+or documentation.
+
+=== Source code
+This client, along with tests and documentation, are in GitHub, located under
+link:https://github.com/infinispan/python-client[].
+Feel free to fork and issue pull requests on changes.
+For more information on working with this repository and GitHub, refer to the
+link:http://infinispan.org/docs/6.0.x/contributing/contributing.html#_source_control[Contributing Guide]
+for Infinispan.
