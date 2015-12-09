@@ -261,8 +261,12 @@ class RemoteCache(object):
       raise EncodeError("%s %s exceeds size limit" % var_name, var)
 
   def _get_resp(self, ret_prev):
-    header = self._read_bytes(HEADER_RES_LEN)
-    magic, msg_id, op, st, topo_mark = struct.unpack(HEADER_RES_FMT, header)
+    # header = self._read_bytes(HEADER_RES_LEN)
+    # magic, msg_id, op, st, topo_mark = struct.unpack(HEADER_RES_FMT, header)
+    # msg_id is vlong
+    magic = struct.unpack('>B',  self._read_bytes(1))[0]
+    msg_id = from_varint(self.s)
+    op,st,topo_mark = struct.unpack('>BBB',  self._read_bytes(3))
     assert (magic == MAGIC[1]), "Got magic: %d" % magic
     return RECV[op](self, st, ret_prev)
 
