@@ -30,8 +30,9 @@ class RemoteCache(object):
   This class is not thread safe, so if different threads want to access the
   same cache, they should use different RemoteCache instances."""
 
-  def __init__(self, host='127.0.0.1', port=11222, cache_name=''):
+  def __init__(self, host='127.0.0.1', port=11222, cache_name='', timeout=None):
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.s.settimeout(timeout)
     self.s.connect((host, port))
     self.cache_name = cache_name
     # Use a simple, non-thread-safe counter to maintain message numbers.
