@@ -2,7 +2,7 @@
 
 from setuptools import setup
 
-version = "1.0.0b1"
+version = "1.0.0b3"
 
 setup(name = 'infinispan',
       version = version,
