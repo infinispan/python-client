@@ -7,6 +7,7 @@ from setuptools.command.build_ext import build_ext as build_ext_orig
 from setuptools.command.build_py import build_py as build_py_orig
 from setuptools.command.egg_info import egg_info as egg_info_orig
 from pprint import pprint
+from sys import platform
 
 class CMakeExtension(Extension):
 
@@ -60,11 +61,22 @@ class build_ext(build_ext_orig):
         os.chdir(str(cwd))
 
 
+if platform == "linux" or platform == "linux2":
+    lib_prefix="lib"
+    lib_suffix=".so"
+    lib_path = 'build/cpp-client/src/cppclient-build/'+lib_prefix+'hotrod'+lib_suffix+".1.0"
+elif platform == "darwin":
+    lib_prefix="lib"
+    lib_suffix=".dylib"
+    lib_path = 'build/cpp-client/src/cppclient-build/'+lib_prefix+'hotrod'+".1.0"+lib_suffix
+elif platform == "win32":
+    print("Windows is not yet supported")
+    quit()
 setup(
     name='infinispan',
     version='0.1',
     packages=['Infinispan'],
-    data_files=[('lib', ['build/cpp-client/src/cppclient-build/libhotrod.so.1.0'])],
+    data_files=[('lib', [lib_path])],
     ext_modules=[CMakeExtension('Infinispan/Infinispan')],
     cmdclass={
         'build_ext': build_ext,
