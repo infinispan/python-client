@@ -15,6 +15,12 @@ include_directories(${PYTHON_INCLUDE_DIRS} /usr/local/opt/protobuf/include)
 
 ##### End of some setting language specifics
 
+if(APPLE)
+set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+set(HOTROD_LIBRARY_SUFFIX ".dylib")
+else(APPLE)
+set(HOTROD_LIBRARY_SUFFIX ".so")
+endif(APPLE)
 
 include_directories(include build/cpp-client/src/cppclient/include build/cpp-client/src/cppclient-build ${TARGET_LANG_INCLUDE})
 set_property(SOURCE swig/hotswig.i PROPERTY CPLUSPLUS ON)
@@ -31,10 +37,10 @@ ExternalProject_Add(cppclient
   BUILD_COMMAND make hotrod 
   INSTALL_COMMAND ""
   PREFIX ${PROJECT_SOURCE_DIR}/build/cpp-client
-  CMAKE_ARGS -DNOENABLE_VALGRIND=$ENV{NOENABLE_VALGRIND} -DNOENABLE_INTERNAL_TESTING=$ENV{NOENABLE_INTERNAL_TESTING} -D=NOENABLE_SWIG_TESTING=$ENV{NOENABLE_SWIG_TESTING} -DOPENSSL_ROOT_DIR=$ENV{OPENSSL_ROOT_DIR}
+  CMAKE_ARGS -DNOENABLE_VALGRIND=ON -DNOENABLE_INTERNAL_TESTING=ON -D=NOENABLE_SWIG_TESTING=ON -DOPENSSL_ROOT_DIR=$ENV{OPENSSL_ROOT_DIR}
 )
 
 add_library(hotrod SHARED IMPORTED)
 
 ExternalProject_Get_Property(cppclient binary_dir)
-set_property(TARGET hotrod PROPERTY IMPORTED_LOCATION ${binary_dir}/${CMAKE_SHARED_LIBRARY_PREFIX}hotrod${CMAKE_SHARED_LIBRARY_SUFFIX})
+set_property(TARGET hotrod PROPERTY IMPORTED_LOCATION ${binary_dir}/${CMAKE_SHARED_LIBRARY_PREFIX}hotrod${HOTROD_LIBRARY_SUFFIX})
