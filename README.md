@@ -21,6 +21,10 @@ TODO fill in
 It should be as easy as type:
 
     pip3 wheel .
+
+or (if you need to point your OPENSSL root dir)
+
+    OPENSSL_ROOT_DIR=/usr/local/opt/openssl
     
 ## Install the client
 
