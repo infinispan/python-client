@@ -35,10 +35,13 @@ An example of client usage is in the test.py script. Run it to check if everythi
 went fine. You need an up and running local Infinispan server ore you'll get a
 connection error.
 
+    python3 test.py
+
+The C++ native libraries are placed by the installation script in `/usr/local/lib` directory (or in `$HOME/.local/lib` if installed
+with --user), so you probably need to help the runtime loader.
+
     LD_LIBRARY_PATH=/usr/local/lib python3 test.py
 
-The C++ native libraries are placed by the installation script in `/usr/local/lib` 
-directory, so you need to tell it to the runtime loader.
 
 ## Uninstall
 
