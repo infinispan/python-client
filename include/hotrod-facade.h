@@ -39,6 +39,7 @@ friend RemoteCache;
 class RemoteCache {
 public:
     RemoteCache(RemoteCacheManager& manager);
+    RemoteCache(RemoteCacheManager& manager, const std::string &cacheName);
     std::vector<unsigned char>* get(const std::vector<unsigned char> &key);
     std::vector<unsigned char>* put(const std::vector<unsigned char> &key, const std::vector<unsigned char> &value);
     std::vector<unsigned char>* remove(const std::vector<unsigned char> &key);

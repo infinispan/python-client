@@ -32,8 +32,8 @@ or (if you need to point your OPENSSL root dir)
 
 ## Use the client
 An example of client usage is in the test.py script. Run it to check if everything
-went fine. You need an up and running local Infinispan server ore you'll get a
-connection error.
+went fine. You need an up and running local Infinispan server and a cache named 'default'
+or you'll have errors.
 
     python3 test.py
 
