@@ -47,4 +47,10 @@ private:
     infinispan::hotrod::RemoteCache<std::vector<unsigned char>, std::vector<unsigned char> >& cache;
 };
 
+class Util {
+public:
+	static std::string toString(std::vector<unsigned char>* u);
+	static std::vector<unsigned char> fromString(std::string s);
+};
+
 }

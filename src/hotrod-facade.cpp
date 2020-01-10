@@ -68,4 +68,11 @@ std::vector<unsigned char>* RemoteCache::put(const std::vector<unsigned char> &k
 std::vector<unsigned char>* RemoteCache::remove(const std::vector<unsigned char> &key) {
     return cache.remove(key);
 }
+
+std::string Util::toString(std::vector<unsigned char>* u) {
+	return std::string(u->data(), u->data()+u->size());
+}
+std::vector<unsigned char> Util::fromString(std::string s) {
+	return std::vector<unsigned char>(s.data(), s.data()+s.size());
+}
 }
