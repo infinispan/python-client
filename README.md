@@ -8,6 +8,10 @@ Focus is easyness to:
 * understand
 * extend
 
+## Note
+Feel free to use and extend this project, but **be aware that it's not actively maintained at the moment**. Notably we can give no guarantee about:
+- providing support for new features;
+- run CI tests against new Infinispan server releases.
 
 ## Requirements
 
@@ -25,7 +29,7 @@ It should be as easy as type:
 or (if you need to point your OPENSSL root dir)
 
     OPENSSL_ROOT_DIR=/usr/local/opt/openssl
-    
+
 ## Install the client
 
     sudo pip3 install *.whl
