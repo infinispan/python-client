@@ -5,6 +5,62 @@
 #include "infinispan/hotrod/Marshaller.h"
 #include "infinispan/hotrod/RemoteCache.h"
 #include <infinispan/hotrod/RemoteCacheManager.h>
+#include <sasl/saslplug.h>
+
+
+static const char *simple_data; // plain
+
+#if !defined _WIN32 && !defined _WIN64
+static char realm_data[] = "applicationRealm";
+#else
+static char realm_data[] = "ApplicationRealm";
+#endif
+
+static int simple(void* /* context */, int id, const char **result, unsigned *len) {
+    *result = simple_data;
+    if (len)
+        *len = strlen(simple_data);
+    return SASL_OK;
+}
+
+static int getrealm(void* /* context */, int id, const char **result, unsigned *len) {
+    *result = realm_data;
+    if (len)
+        *len = strlen(realm_data);
+    return SASL_OK;
+}
+
+#define PLUGINDIR "/usr/lib64/sasl2"
+
+static int getpath(void *context, const char ** path) {
+    if (!path)
+        return SASL_BADPARAM;
+    *path = PLUGINDIR;
+    return SASL_OK;
+}
+
+static const char *secret_data;
+
+static int getsecret(void* /* conn */, void* /* context */, int id, sasl_secret_t **psecret) {
+    size_t len;
+    static sasl_secret_t *x;
+    len = strlen(secret_data);
+
+    x = (sasl_secret_t *) realloc(x, sizeof(sasl_secret_t) + len);
+
+    x->len = len;
+    strcpy((char *) x->data, secret_data);
+
+    *psecret = x;
+    return SASL_OK;
+}
+
+static std::vector<sasl_callback_t> callbackHandler { { SASL_CB_USER, (sasl_callback_ft) &simple, NULL }, {
+SASL_CB_AUTHNAME, (sasl_callback_ft) &simple, NULL }, { SASL_CB_PASS, (sasl_callback_ft) &getsecret, NULL }, {
+SASL_CB_GETREALM, (sasl_callback_ft) &getrealm, NULL }, { SASL_CB_GETPATH, (sasl_callback_ft) &getpath, NULL }, {
+SASL_CB_LIST_END, NULL, NULL } };
+
+
 
 namespace Infinispan
 {
@@ -27,6 +83,13 @@ void Configuration::addServer(std::string host, unsigned short port) {
 
 void Configuration::setProtocol(std::string protocol) {
     this->builder->protocolVersion(protocol);
+}
+
+void Configuration::setSasl(std::string mechanism, std::string serverFQDN, std::string user, std::string password) {
+        simple_data = strdup(user.c_str());
+        secret_data = strdup(password.c_str());
+        this->builder->security().authentication().saslMechanism(mechanism).serverFQDN(
+                serverFQDN).callbackHandler(callbackHandler).enable();
 }
 
 void Configuration::build()
