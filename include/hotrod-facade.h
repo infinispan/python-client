@@ -39,11 +39,18 @@ friend RemoteCache;
 class RemoteCache {
 public:
     RemoteCache(RemoteCacheManager& manager);
+    RemoteCache(RemoteCacheManager& manager, const std::string &cacheName);
     std::vector<unsigned char>* get(const std::vector<unsigned char> &key);
     std::vector<unsigned char>* put(const std::vector<unsigned char> &key, const std::vector<unsigned char> &value);
     std::vector<unsigned char>* remove(const std::vector<unsigned char> &key);
 private:
     infinispan::hotrod::RemoteCache<std::vector<unsigned char>, std::vector<unsigned char> >& cache;
+};
+
+class Util {
+public:
+	static std::string toString(std::vector<unsigned char>* u);
+	static std::vector<unsigned char> fromString(std::string s);
 };
 
 }

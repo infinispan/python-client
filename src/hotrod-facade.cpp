@@ -52,6 +52,11 @@ RemoteCache::RemoteCache(RemoteCacheManager& m) : cache(m.manager->getCache<std:
                                                        , &IdentityMarshaller::destroy, new IdentityMarshaller()
                                                        , &IdentityMarshaller::destroy)) {
 }
+RemoteCache::RemoteCache(RemoteCacheManager& m, const std::string &cacheName) : cache(m.manager->getCache<std::vector<unsigned char>
+                                                       , std::vector<unsigned char> >(new IdentityMarshaller()
+                                                       , &IdentityMarshaller::destroy, new IdentityMarshaller()
+                                                       , &IdentityMarshaller::destroy, cacheName)) {
+}
 
 std::vector<unsigned char>* RemoteCache::get(const std::vector<unsigned char> &key) {
     return cache.get(key);
@@ -62,5 +67,12 @@ std::vector<unsigned char>* RemoteCache::put(const std::vector<unsigned char> &k
 }
 std::vector<unsigned char>* RemoteCache::remove(const std::vector<unsigned char> &key) {
     return cache.remove(key);
+}
+
+std::string Util::toString(std::vector<unsigned char>* u) {
+	return std::string(u->data(), u->data()+u->size());
+}
+std::vector<unsigned char> Util::fromString(std::string s) {
+	return std::vector<unsigned char>(s.data(), s.data()+s.size());
 }
 }
