@@ -24,6 +24,8 @@ public:
     
 private:
     infinispan::hotrod::ConfigurationBuilder* builder;
+    std::string userCpy;
+    std::string passwordCpy;
 friend RemoteCacheManager;
 };
 

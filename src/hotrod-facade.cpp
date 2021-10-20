@@ -23,6 +23,13 @@ static int simple(void* /* context */, int id, const char **result, unsigned *le
     return SASL_OK;
 }
 
+static int getUser(void*  context, int id, const char **result, unsigned *len) {
+    *result = (char*) context;
+    if (len)
+        *len = strlen((char*)context);
+    return SASL_OK;
+}
+
 static int getrealm(void* /* context */, int id, const char **result, unsigned *len) {
     *result = realm_data;
     if (len)
@@ -55,10 +62,19 @@ static int getsecret(void* /* conn */, void* /* context */, int id, sasl_secret_
     return SASL_OK;
 }
 
-static std::vector<sasl_callback_t> callbackHandler { { SASL_CB_USER, (sasl_callback_ft) &simple, NULL }, {
-SASL_CB_AUTHNAME, (sasl_callback_ft) &simple, NULL }, { SASL_CB_PASS, (sasl_callback_ft) &getsecret, NULL }, {
-SASL_CB_GETREALM, (sasl_callback_ft) &getrealm, NULL }, { SASL_CB_GETPATH, (sasl_callback_ft) &getpath, NULL }, {
-SASL_CB_LIST_END, NULL, NULL } };
+static int getPassword(void* /* conn */, void*  context, int id, sasl_secret_t **psecret) {
+    size_t len;
+    static sasl_secret_t *x;
+    len = strlen((char*)context);
+
+    x = (sasl_secret_t *) realloc(x, sizeof(sasl_secret_t) + len);
+
+    x->len = len;
+    strcpy((char *) x->data, (char*)context);
+
+    *psecret = x;
+    return SASL_OK;
+}
 
 
 
@@ -86,8 +102,13 @@ void Configuration::setProtocol(std::string protocol) {
 }
 
 void Configuration::setSasl(std::string mechanism, std::string serverFQDN, std::string user, std::string password) {
-        simple_data = strdup(user.c_str());
-        secret_data = strdup(password.c_str());
+	// BEWARE this implementation copies user and password in memory
+        userCpy = user;
+        passwordCpy = password;
+        std::vector<sasl_callback_t> callbackHandler { { SASL_CB_USER, (sasl_callback_ft) &getUser, (void**)userCpy.data() }, {
+                    SASL_CB_AUTHNAME, (sasl_callback_ft) &getUser, (void**)userCpy.data() }, { SASL_CB_PASS, (sasl_callback_ft) &getPassword, (void**)passwordCpy.data() }, {
+                    SASL_CB_GETREALM, (sasl_callback_ft) &getrealm, NULL }, { SASL_CB_GETPATH, (sasl_callback_ft) &getpath, NULL }, {
+                    SASL_CB_LIST_END, NULL, NULL } };
         this->builder->security().authentication().saslMechanism(mechanism).serverFQDN(
                 serverFQDN).callbackHandler(callbackHandler).enable();
 }
@@ -138,4 +159,5 @@ std::string Util::toString(std::vector<unsigned char>* u) {
 std::vector<unsigned char> Util::fromString(std::string s) {
 	return std::vector<unsigned char>(s.data(), s.data()+s.size());
 }
+
 }
