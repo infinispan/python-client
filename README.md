@@ -40,6 +40,7 @@ went fine. You need an up and running local Infinispan server and a cache named 
 or you'll have errors.
 
     python3 test.py
+    python3 testSasl.py  (if you want SASL authentication)
 
 The C++ native libraries are placed by the installation script in `/usr/local/lib` directory (or in `$HOME/.local/lib` if installed
 with --user), so you probably need to help the runtime loader.
