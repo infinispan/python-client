@@ -19,9 +19,13 @@ public:
     void addServer(std::string host, unsigned short post);
     void setProtocol(std::string);
     void build();
+    void setSasl(std::string mechanism, std::string serverFQDN, std::string user, std::string password);
     ~Configuration();
+    
 private:
     infinispan::hotrod::ConfigurationBuilder* builder;
+    std::string userCpy;
+    std::string passwordCpy;
 friend RemoteCacheManager;
 };
 
