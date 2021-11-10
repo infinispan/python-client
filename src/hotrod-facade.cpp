@@ -5,35 +5,17 @@
 #include "infinispan/hotrod/Marshaller.h"
 #include "infinispan/hotrod/RemoteCache.h"
 #include <infinispan/hotrod/RemoteCacheManager.h>
+#include <infinispan/hotrod/RemoteCacheManagerAdmin.h>
 #include <sasl/saslplug.h>
+#include <set>
 
 
 static const char *simple_data; // plain
-
-#if !defined _WIN32 && !defined _WIN64
-static char realm_data[] = "applicationRealm";
-#else
-static char realm_data[] = "ApplicationRealm";
-#endif
-
-static int simple(void* /* context */, int id, const char **result, unsigned *len) {
-    *result = simple_data;
-    if (len)
-        *len = strlen(simple_data);
-    return SASL_OK;
-}
 
 static int getUser(void*  context, int id, const char **result, unsigned *len) {
     *result = (char*) context;
     if (len)
         *len = strlen((char*)context);
-    return SASL_OK;
-}
-
-static int getrealm(void* /* context */, int id, const char **result, unsigned *len) {
-    *result = realm_data;
-    if (len)
-        *len = strlen(realm_data);
     return SASL_OK;
 }
 
@@ -43,22 +25,6 @@ static int getpath(void *context, const char ** path) {
     if (!path)
         return SASL_BADPARAM;
     *path = PLUGINDIR;
-    return SASL_OK;
-}
-
-static const char *secret_data;
-
-static int getsecret(void* /* conn */, void* /* context */, int id, sasl_secret_t **psecret) {
-    size_t len;
-    static sasl_secret_t *x;
-    len = strlen(secret_data);
-
-    x = (sasl_secret_t *) realloc(x, sizeof(sasl_secret_t) + len);
-
-    x->len = len;
-    strcpy((char *) x->data, secret_data);
-
-    *psecret = x;
     return SASL_OK;
 }
 
@@ -75,7 +41,6 @@ static int getPassword(void* /* conn */, void*  context, int id, sasl_secret_t *
     *psecret = x;
     return SASL_OK;
 }
-
 
 
 namespace Infinispan
@@ -106,8 +71,8 @@ void Configuration::setSasl(std::string mechanism, std::string serverFQDN, std::
         userCpy = user;
         passwordCpy = password;
         std::vector<sasl_callback_t> callbackHandler { { SASL_CB_USER, (sasl_callback_ft) &getUser, (void**)userCpy.data() }, {
+                    SASL_CB_GETPATH, (sasl_callback_ft) &getpath, NULL }, {
                     SASL_CB_AUTHNAME, (sasl_callback_ft) &getUser, (void**)userCpy.data() }, { SASL_CB_PASS, (sasl_callback_ft) &getPassword, (void**)passwordCpy.data() }, {
-                    SASL_CB_GETREALM, (sasl_callback_ft) &getrealm, NULL }, { SASL_CB_GETPATH, (sasl_callback_ft) &getpath, NULL }, {
                     SASL_CB_LIST_END, NULL, NULL } };
         this->builder->security().authentication().saslMechanism(mechanism).serverFQDN(
                 serverFQDN).callbackHandler(callbackHandler).enable();
@@ -153,11 +118,42 @@ std::vector<unsigned char>* RemoteCache::remove(const std::vector<unsigned char>
     return cache.remove(key);
 }
 
-std::string Util::toString(std::vector<unsigned char>* u) {
-	return std::string(u->data(), u->data()+u->size());
+std::vector<std::vector<unsigned char> > RemoteCache::keys() {
+        auto set = cache.keySet();
+        std::vector<std::vector<unsigned char> > res(set.size());
+        for(auto i : set) {
+          res.push_back(*i);
+        }
+        return res;
+}
+
+std::string Util::toString(std::vector<unsigned char> u) {
+    return std::string(u.data(), u.data()+u.size());
 }
 std::vector<unsigned char> Util::fromString(std::string s) {
-	return std::vector<unsigned char>(s.data(), s.data()+s.size());
+    return std::vector<unsigned char>(s.data(), s.data()+s.size());
+}
+
+RemoteCacheManagerAdmin::RemoteCacheManagerAdmin(RemoteCacheManager& rcm) : rcm(rcm){
+    admin = this->rcm.manager->administration();
+}
+
+RemoteCache RemoteCacheManagerAdmin::createCache(const std::string name, std::string model) {
+    admin->createCache(name, model, std::string("@@cache@create"));
+    return RemoteCache(rcm, name);
+}
+RemoteCache RemoteCacheManagerAdmin::createCacheWithXml(const std::string name, std::string conf) {
+    admin->createCacheWithXml(name, conf, std::string("@@cache@create"));
+    return RemoteCache(rcm, name);
+}
+
+RemoteCache RemoteCacheManagerAdmin::getOrCreateCache(const std::string name, std::string model) {
+    admin->createCache(name, model, std::string("@@cache@getorcreate"));
+    return RemoteCache(rcm, name);
+}
+RemoteCache RemoteCacheManagerAdmin::getOrCreateCacheWithXml(const std::string name, std::string conf) {
+    admin->createCacheWithXml(name, conf, std::string("@@cache@getorcreate"));
+    return RemoteCache(rcm, name);
 }
 
 }
