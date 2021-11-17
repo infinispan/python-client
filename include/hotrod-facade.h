@@ -65,6 +65,7 @@ public:
     std::vector<unsigned char>* put(const std::vector<unsigned char> &key, const std::vector<unsigned char> &value);
     std::vector<unsigned char>* remove(const std::vector<unsigned char> &key);
     std::vector<std::vector<unsigned char> > keys();
+    bool containsKey(const std::vector<unsigned char> &key);
 private:
     infinispan::hotrod::RemoteCache<std::vector<unsigned char>, std::vector<unsigned char> >& cache;
 };

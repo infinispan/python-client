@@ -120,11 +120,15 @@ std::vector<unsigned char>* RemoteCache::remove(const std::vector<unsigned char>
 
 std::vector<std::vector<unsigned char> > RemoteCache::keys() {
         auto set = cache.keySet();
-        std::vector<std::vector<unsigned char> > res(set.size());
+        std::vector<std::vector<unsigned char> > res;
         for(auto i : set) {
           res.push_back(*i);
         }
         return res;
+}
+
+bool RemoteCache::containsKey(const std::vector<unsigned char> &key) {
+	return cache.containsKey(key);
 }
 
 std::string Util::toString(std::vector<unsigned char> u) {
