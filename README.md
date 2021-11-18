@@ -9,8 +9,8 @@ Focus is easyness to:
 * extend
 
 ## Note
-Feel free to use and extend this project, but **be aware that it's not actively maintained at the moment**. Notably we can give no guarantee about:
-- providing support for new features;
+Feel free to use and extend this project, but **be aware that is maintained with limitated resources at the moment**. Notably we can give no guarantee about:
+- fast response in providing support for new features;
 - run CI tests against new Infinispan server releases.
 
 ## Requirements
