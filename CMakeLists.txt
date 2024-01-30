@@ -1,4 +1,6 @@
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 3.12)
+cmake_policy(SET CMP0078 OLD)
+cmake_policy(SET CMP0086 OLD)
 project (hotswig)
 
 set(TARGET_LANG python CACHE STRING "Target language. Defaulted to python")
@@ -9,9 +11,8 @@ include(${SWIG_USE_FILE})
 ##### Some setting language specifics
 
 #load the package that SWIG uses to generate Python
-FIND_PACKAGE(PythonInterp 3)
-FIND_PACKAGE(PythonLibs 3)
-include_directories(${PYTHON_INCLUDE_DIRS} /usr/local/opt/protobuf/include)
+FIND_PACKAGE(Python3 COMPONENTS Interpreter Development)
+include_directories(${Python3_INCLUDE_DIRS} /usr/local/opt/protobuf/include)
 
 ##### End of some setting language specifics
 
@@ -34,7 +35,7 @@ swig_link_libraries (Infinispan hotrod ${PYTHON_LIBRARIES})
 include(ExternalProject)
 ExternalProject_Add(cppclient
   GIT_REPOSITORY    https://github.com/infinispan/cpp-client.git
-  GIT_TAG main
+  GIT_TAG origin/main
   BUILD_COMMAND make hotrod 
   INSTALL_COMMAND ""
   PREFIX ${PROJECT_SOURCE_DIR}/build/cpp-client
@@ -45,3 +46,5 @@ add_library(hotrod SHARED IMPORTED)
 
 ExternalProject_Get_Property(cppclient binary_dir)
 set_property(TARGET hotrod PROPERTY IMPORTED_LOCATION ${binary_dir}/${CMAKE_SHARED_LIBRARY_PREFIX}hotrod${HOTROD_LIBRARY_SUFFIX})
+
+add_dependencies(hotrod cppclient)
